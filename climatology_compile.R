@@ -41,3 +41,50 @@ ncz<-list.files()
 nc_open(ncz[1])
 
 ras<-raster(ncz[1])
+
+# now get thermocline data
+nc1<-nc_open("~/grive/phd/sourced_data/env_data/thermocline/ttd_DTm02_c1m_reg2.0.nc")
+print(nc1)
+
+ttd=ncvar_get(nc1, varid="ttd") # extracts top of thermocline depth (estimated by kriging of ttd_smth) data
+## from .nc file note gives XYZ matrix of values for long, lats and months [1:180, 1:90, 12]
+
+for(i in 1:12){
+r1<-raster(nrows=90, ncols=180, resolution=2,
+           vals=as.vector(ttd[1:180, 1:90, i])) # 3 is cos we want March
+r1@extent<-extent(0,360,-90,90) # global coords
+r1<-flip(r1,2)
+r1<-rotate(r1)
+#plot(r1)
+#plot(log(r1))
+r1[r1==1.000000e+09]<-NA
+#plot(r1)
+writeRaster(r1, paste("~/grive/phd/sourced_data/env_data/climatologies/thermocline_",
+              i, ".tif", sep=""))
+}
+
+### finally we better make a distance to seamount layer
+bathy<-raster("~/grive/phd/sourced_data/env_data/phd_bathy/GRIDONE_2D_100.0_-45.0_180.0_40.0.nc")
+smounts<-read.table("~/grive/phd/sourced_data/env_data/seamounts/seamounts_KWSMTSv01.txt",
+           skip=16, header=T, sep = "\t", comment.char=">")
+plot(Latitude~Longitude, smounts, pch=7, cex=0.5)
+
+sm_ras_wgs<-rasterize(data.frame(smounts$Longitude,
+                      smounts$Latitude),bathy, field=1, background=NA) 
+
+sm_ras_merc<-projectRaster(sm_ras_wgs, crs="+proj=merc +lon_0=140 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs")
+#project to mercator with centre at 140 
+
+writeRaster(sm_ras_merc, "~/grive/phd/sourced_data/env_data/seamounts/seamounts_ras_merc.tif", overwrite=T) 
+## distance (even when projected) in R is pretty slow, if you write to QGIS to use GDAL = v. fast :)
+
+#Now read in QGIS product and reproject
+dsmount_merc<-raster("~/grive/phd/sourced_data/env_data/seamounts/d_seamounts_merc.tif")
+
+dsmount_wgs<-projectRaster(dsmount_merc, crs="+proj=longlat +ellps=WGS84")
+#convert to km
+dsmount_wgs<-dsmount_wgs/1000
+
+writeRaster(dsmount_wgs, "~/grive/phd/sourced_data/env_data/seamounts/d_seamounts_wgs.tif", overwrite=T) 
+
+
