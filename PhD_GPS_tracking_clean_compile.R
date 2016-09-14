@@ -1,3 +1,6 @@
+# 13/09/16 Lancaster, UK
+# Clean and compile all GPS tracking data for use in multiple PhD chapters
+
 rm(list=ls())
 
 library(maps)
@@ -184,7 +187,7 @@ dat_tripsplit<-rbind(dat_tripsplit, Trips@data)
 
 # write out tripsplit data
 
-write.csv(dat_tripsplit, "GPS_2014_15_clean_resamp.csv", quote=F, row.names=F)
+write.csv(dat_tripsplit, "GPS_2014_15_clean_resamp_tripsplit.csv", quote=F, row.names=F)
 
 
 final_out$trip_type<-"L"
