@@ -1,3 +1,4 @@
+# 11/09/16 Lancaster, UK
 #read in, select and compile hdf data for kernal-based extraction
 
 rm(list=ls())
