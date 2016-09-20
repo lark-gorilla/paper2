@@ -189,6 +189,62 @@ dat_tripsplit<-rbind(dat_tripsplit, Trips@data)
 
 write.csv(dat_tripsplit, "GPS_2014_15_clean_resamp_tripsplit.csv", quote=F, row.names=F)
 
+## HMM trial using moveHMM package
+library(moveHMM)
+
+dat<-read.csv("GPS_2014_15_clean_resamp_tripsplit.csv", h=T)
+
+tempdata<-prepData(data.frame(x=dat$Longitude, y=dat$Latitude,
+                              ID=dat$TrackID), type="LL")
+# could use Colony and ColDist as covariates
+plot(tempdata) # this gives idea of starting parameter values
+plot(tempdata, compact=T) #better plot
+
+mu0 <- c(0.5,2,5)
+sigma0 <- c(0.5,2,5)
+zeromass0 <- c(0.5,0.1,0.1)
+stepPar0 <- c(mu0,sigma0, zeromass0)
+angleMean0 <- c(0,pi,0)
+kappa0 <- c(2,1,2)
+anglePar0 <- c(angleMean0,kappa0)
+
+hmm_1<- fitHMM(data=tempdata,nbStates=3,stepPar0=stepPar0,
+                anglePar0=anglePar0)
+
+#####
+
+#data2012<-data2012[data2012$step>0,]
+#data2012<-data2012[!is.na(data2012$ID),]
+
+plot(data2012)
+
+##experimental 4 parameter
+mu0 <- c(0.0001,0.01, 0.03, 0.03)
+sigma0 <- c(0.0001,0.01,0.03, 0.01)
+zeromass0 <- c(0.01,0.01, 0.0001, 0.0001)
+stepPar0 <- c(mu0,sigma0, zeromass0)
+angleMean0 <- c(0,pi,pi, 0)
+kappa0 <- c(2,1,1, 2)
+anglePar0 <- c(angleMean0,kappa0)
+
+# parameters set up for 2 second interval data
+# CURRENT runs with:2012, 2014, 2015
+mu0 <- c(0.0001,0.01,0.03)
+sigma0 <- c(0.0001,0.01,0.03)
+zeromass0 <- c(0.01,0.0001,0.0001)
+stepPar0 <- c(mu0,sigma0, zeromass0)
+angleMean0 <- c(0,pi,0)
+kappa0 <- c(2,1,2)
+anglePar0 <- c(angleMean0,kappa0)
+
+m3zm <- fitHMM(data=data2sec[data2sec$year=="2012",],nbStates=3,stepPar0=stepPar0,
+               anglePar0=anglePar0)
+
+out<-data2sec[data2sec$year=="2012",]
+states<-viterbi(m3zm)
+out$states<-states
+write.csv(out, "FINALdata2012.csv", quote=F, row.names=F)
+
 
 final_out$trip_type<-"L"
 final_out[final_out$trip_id %in% trip_distances[trip_distances$time<24*4,]$trip,]$trip_type<-"S"
@@ -210,4 +266,160 @@ final_out$DayNight<-"Day"
 final_out[final_out$Hr %in% c("19","20","21","22","23","00","01","02","03","04","05"),]$DayNight<-"Night"
 
 write.csv(final_out, "D:/research/phd/results/GPS_2014_15_trip_fpt.csv", quote=F, row.names=F)
+
+
+
+## not run, need to choose HMM method then run
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# CONVERT TRIPS OBJECT TO TRAJECTORY OBJECT TO CALCULATE TURNING ANGLES ETC.
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+### 1. project_data
+library(geosphere)
+
+mid_point<-data.frame(centroid(cbind(final_out$Longitude, final_out$Latitude)))
+final_out.Wgs <- SpatialPoints(data.frame(final_out$Longitude, final_out$Latitude), proj4string=CRS("+proj=longlat + datum=wgs84"))
+DgProj <- CRS(paste("+proj=laea +lon_0=", mid_point$lon, " +lat_0=", mid_point$lat, sep=""))
+final_out.Projected <- spTransform(final_out.Wgs, CRS=DgProj)
+#now we have projected coords for WHOLE dataset (rather than cols split)
+
+### 3. Convert to LTRAJ
+library(adehabitat)
+
+trajectories <- as.ltraj(xy=data.frame(final_out.Projected@coords[,1],
+                                       final_out.Projected@coords[,2]), date=as.POSIXct(final_out$TrackTime, origin="1970/01/01", tz="GMT"), id=final_out$trip_id, typeII = TRUE)   
+
+
+tt<-summary.ltraj(trajectories)
+trips<-tt$id
+head(trajectories[[1]])
+#plot(trajectories)
+
+## I havent run these data data cleaning loops - think they only affect the odd point
+
+### 4. Enumerate bogus data [>3 hr time lapse]
+#nonsense<-data.frame(trips, oddlocs=0)
+#for (t in 1:length(trips)){
+#x<-trajectories[[t]]
+#nonsense$oddlocs[nonsense$trips==trips[t]]<-dim(x[x$dt>10000,])[1]
+#}
+#nonsense
+
+### 5. Eliminate bogus data [>3 hr time lapse]
+### removes lines with a long time interval and NA for angle
+
+#for (t in 1:length(trips)){
+#x<-trajectories[[t]]
+#x<-x[!(x$dt>10000),]
+#x<-x[!is.na(x$rel.angle),]
+#trajectories[[t]]<-x
+#}
+
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# FIT SINGLE HMM TO ALL TRIPS
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+#triplist<-list()					## causes error message in viterbi: "REAL() can only be applied to a 'numeric', not a 'list'
+triplist<-data.frame()
+for (t in 1:length(trips)){
+  uil<-trajectories[[t]]
+  uil<-uil[,c(6:7,10)]
+  uil$speed<-uil$dist/uil$dt
+  uil$dist<-NULL
+  uil$dt<-NULL
+  uil[is.na(uil)]<-0
+  uil$ID<-trips[[t]]
+  #triplist[[t]] <- uil
+  triplist <- rbind(triplist,uil)
+}
+
+hmm.2<-HMMFit(triplist[,1:2],nStates=3)		## fits a hidden markov model with 3 states - foraging and commuting and sleeping?
+states<-viterbi(hmm.2,triplist[,1:2])		## extracts the predicted states for each location fix using Viterbi's algorith from the HMM fit
+triplist$state2<-states$states
+
+final_out$hmm_all_trips<-0
+for(i in trips)
+{
+  final_out[final_out$trip_id==i,]$hmm_all_trips<-triplist[triplist$ID==i,]$state2
+} ## loop to match up correct trips in triplist and final_out
+
+
+
+########## plot separation between foraging and commuting ##########
+plot(speed~rel.angle, data=triplist, type='p',col=triplist$state, pch=triplist$state)
+## Nice plot :)
+
+
+
+### SUMMARISE MAX DIST FROM COLONY AND TRIP TRAVELLING TIME FOR EACH TRIP
+
+trip_distances<-data.frame(trip=unique(final_out$trip_id), max_dist=0, time=0, total_dist=0, fin_dist=0,
+                           Returns="na",trip_type="na", Year="na", Colony="na",
+                           perc_forage=0, perc_commute=0, perc_sit=0,
+                           perc_forage_day=0, perc_sit_day=0)  	### create data frame for each trip
+
+trip_distances$Returns<-as.character(trip_distances$Returns)
+trip_distances$trip_type<-as.character(trip_distances$trip_type)
+trip_distances$Year<-as.character(trip_distances$Year)
+trip_distances$Colony<-as.character(trip_distances$Colony)
+
+
+for (i in trip_distances$trip){
+  trip_distances[trip_distances$trip==i,2]<-max(final_out[final_out$trip_id==i,]$ColDist)/1000
+  trip_distances[trip_distances$trip==i,3]<-(max(final_out[final_out$trip_id==i,]$TrackTime)-min(final_out[final_out$trip_id==i,]$TrackTime))/3600
+  trip_distances[trip_distances$trip==i,5]<-max(final_out[final_out$trip_id==i,]$ColDist)/1000
+  ## Calculate distances from one point to the next and total trip distance
+  x=final_out[final_out$trip_id==i,]
+  x$Dist=0
+  x$Dist[1]<-x$ColDist[1]/1000				### distance to first point is assumed a straight line from the nest/colony
+  for (p in 2:dim(x)[1]){
+    p1<-c(x$Longitude[p-1],x$Latitude[p-1])
+    p2<-c(x$Longitude[p],x$Latitude[p])
+    #x$Dist[p]<-pointDistance(p1,p2, lonlat=T, allpairs=FALSE)/1000			### no longer works in geosphere
+    x$Dist[p]<-distMeeus(p1,p2)/1000						### great circle distance according to Meeus, converted to km
+    
+  }
+  trip_distances[trip_distances$trip==i,4]<-sum(x$Dist)+(x$ColDist[p]/1000)	## total trip distance is the sum of all steps plus the dist from the nest of the last location - for non return trips this will be an underestimate
+  trip_distances[trip_distances$trip==i,6]<-as.character(unique(final_out[final_out$trip_id==i,]$Returns))
+  trip_distances[trip_distances$trip==i,7]<-as.character(unique(final_out[final_out$trip_id==i,]$trip_type))
+  trip_distances[trip_distances$trip==i,8]<-as.character(unique(final_out[final_out$trip_id==i,]$Year))
+  trip_distances[trip_distances$trip==i,9]<-as.character(unique(final_out[final_out$trip_id==i,]$Colony))
+  trip_distances[trip_distances$trip==i,10]<-round((nrow(final_out[final_out$trip_id==i &final_out$hmm_all_trips==2,])/
+                                                      nrow(final_out[final_out$trip_id==i, ]))*100)
+  trip_distances[trip_distances$trip==i,11]<-round((nrow(final_out[final_out$trip_id==i &final_out$hmm_all_trips==3,])/
+                                                      nrow(final_out[final_out$trip_id==i, ]))*100)
+  trip_distances[trip_distances$trip==i,12]<-round((nrow(final_out[final_out$trip_id==i &final_out$hmm_all_trips==1,])/
+                                                      nrow(final_out[final_out$trip_id==i, ]))*100)
+  
+  
+  trip_distances[trip_distances$trip==i,13]<-round((nrow(final_out[final_out$trip_id==i &final_out$hmm_all_trips==2 & final_out$DayNight=="Day",])/
+                                                      nrow(final_out[final_out$trip_id==i &final_out$hmm_all_trips==2,]))*100)
+  trip_distances[trip_distances$trip==i,14]<-round((nrow(final_out[final_out$trip_id==i &final_out$hmm_all_trips==1 & final_out$DayNight=="Day",])/
+                                                      nrow(final_out[final_out$trip_id==i &final_out$hmm_all_trips==1,]))*100)
+  
+}
+
+trip_distances$days<-ceiling(trip_distances$time/24)
+
+## using merge :) to attrib days to final_out
+
+#m1<-merge(final_out, trip_distances, by.x="trip_id",by.y="trip", set.all.x=TRUE)
+#final_out$days<-m1$days ## doesnt work.. need to sort rows properly
+
+#bodge but works
+final_out$days<-0
+for(i in trip_distances$trip)
+{
+  final_out[final_out$trip_id==i,]$days<-trip_distances[trip_distances$trip==i,]$days
+}
+
+
+
+
+write.csv(trip_distances, "D:/research/phd/results/GPS_2014_15_trip_summary.csv", quote=F, row.names=F)
+
+trip_distances<-read.csv("D:/research/phd/results/GPS_2014_15_trip_summary.csv", h=T)
 
