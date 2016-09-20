@@ -36,10 +36,14 @@ DgProj <- CRS("+proj=laea +lon_0=156 +lat_0=-17")
 heronProj <- spTransform(Colony_heron, CRS=DgProj)
 lhiProj <- spTransform(Colony_lhi, CRS=DgProj)
 
+#need to use a width as specified above
 heronBuffProj <- gBuffer(heronProj, width=80000, quadsegs=50)
 lhiBuffProj <- gBuffer(lhiProj, width=80000, quadsegs=50)
 #TBuffProj@polygons[[1]]@ID <- as.character(i)
   
 heronBuffWgs <- spTransform(heronBuffProj, CRS=CRS( "+proj=longlat +ellps=WGS84"))
 lhiBuffWgs <- spTransform(lhiBuffProj, CRS=CRS( "+proj=longlat +ellps=WGS84"))
+ # now clib out land
+http://robinlovelace.net/r/2014/07/29/clipping-with-r.html
 
+https://philmikejones.wordpress.com/2015/09/01/clipping-polygons-in-r/
