@@ -289,8 +289,19 @@ dat$trip_type<-trip_distances[match(dat$trip_id,trip_distances$trip),]$trip_type
 dat$Month<-substr(dat$DateAEST, 6,7)
 dat$Year<-substr(dat$DateAEST, 1,4)
 dat$Hr<-substr(dat$TimeAEST, 1,2)
-dat$DayNight<-"Day"
-dat[dat$Hr %in% c("19","20","21","22","23","00","01","02","03","04","05"),]$DayNight<-"Night"
+
+#the below code accurately assigns day and night to each datapoint 
+library(RAtmosphere)
+# this code is ripped from https://smathermather.wordpress.com/2014/08/05/using-spatial-data-in-r-to-estimate-home-ranges-guest-blog-post/
+  #if time is greater than the sunrise time or less than the sunset time, apply DAY
+  suntime <- suncalc(as.numeric(as.Date(dat$DateAEST, format="%Y-%m-%d") - as.Date(paste(dat$Year,"-01-01", sep=""))), Lat=dat$Latitude, Long=dat$Longitude, UTC=FALSE)
+  coytime <- sapply(strsplit(as.character(dat$TimeAEST),":"),
+                    function(x) {
+                      x <- as.numeric(x)
+                      x[1]+x[2]/60+x[3]/3600
+                    })
+  
+  dat$DayNight<-ifelse(coytime > suntime$sunrise & coytime < suntime$sunset, "DAY", "NIGHT")
 
 write.csv(dat, "GPS_141516_clean_resamp_tripsplit_hmm_attribs.csv", quote=F, row.names=F)
 
