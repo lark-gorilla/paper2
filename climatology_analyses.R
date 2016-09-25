@@ -19,3 +19,24 @@ p+geom_boxplot()+facet_wrap(~variable, scale="free")
 ## seperately for each colony.
 
 # first we need to remove outliers and transform some variables
+
+qplot(x=value, data=d1)+facet_wrap(~variable, scale="free")
+
+qplot(factor(variable), value, data=d1, geom="boxplot")+facet_wrap(~variable, scale="free")
+
+# simplist way is do an na.omit, which basically kills all coastline pixels
+qplot(Longitude, Latitude, data=dat)+geom_point(data=na.omit(dat), aes(Longitude, Latitude), colour=2)
+
+dat<-na.omit(dat)
+#now how does it look?
+d1<-melt(dat, id.vars=c("Latitude", "Longitude", "dset", "dtyp"))
+qplot(x=value, data=d1)+facet_wrap(~variable, scale="free")
+qplot(factor(variable), value, data=d1, geom="boxplot")+facet_wrap(~variable, scale="free")
+
+# seamounts and chl still need some attention
+qplot(Longitude, Latitude, data=dat)+geom_point(data=dat[dat$chl<1000,], aes(Longitude, Latitude), colour=2)
+## hmm although these are likely reef effects its better to leave in and transform
+qplot(chl, data=dat);qplot(log(chl), data=dat)
+
+
+
