@@ -26,9 +26,9 @@ DgProj <- CRS("+proj=laea +lon_0=156 +lat_0=-17")
 heronProj <- spTransform(Colony_heron, CRS=DgProj)
 lhiProj <- spTransform(Colony_lhi, CRS=DgProj)
 
-#need to use a width as specified above
-heronBuffProj <- gBuffer(heronProj, width=d1, quadsegs=50)
-lhiBuffProj <- gBuffer(lhiProj, width=d1, quadsegs=50)
+#need to use a width as specified above # now 1400m as Heron 2013 PTT data shows
+heronBuffProj <- gBuffer(heronProj, width=1400000, quadsegs=50)
+lhiBuffProj <- gBuffer(lhiProj, width=1400000, quadsegs=50)
 #TBuffProj@polygons[[1]]@ID <- as.character(i)
   
 heronBuffWgs <- spTransform(heronBuffProj, CRS=CRS( "+proj=longlat +ellps=WGS84"))
@@ -44,7 +44,7 @@ plot(heronBuffWgs, add=T, border=2)
 
 heronBuffWgsclip<-gDifference(heronBuffWgs, world) # warning but should be ok (bassically the smae proj)
 lhiBuffWgsclip<-gDifference(lhiBuffWgs, world) # warning but should be ok (bassically the smae proj)
-plot(heronBuffWgsclip)
+plot(heronBuffWgsclip) # edited out bit beyond cape york in qgis
 
 writeOGR(SpatialPolygonsDataFrame(heronBuffWgsclip, data.frame(ID=1)), layer="heronBuff", dsn="spatial", driver="ESRI Shapefile", verbose=TRUE, overwrite=T)
 writeOGR(SpatialPolygonsDataFrame(lhiBuffWgsclip, data.frame(ID=1)), layer="lhiBuff", dsn="spatial", driver="ESRI Shapefile", verbose=TRUE, overwrite=T)
@@ -72,9 +72,9 @@ plot(heronApts[sample(length(heronApts),2000, prob=heronApts$layer),]) # layer i
 ### after all this I've actually thought myself out of using the weighting!!
 ### going to just randomly distribute points over the entire area.
 
-heron_psuedo<-spsample(heronBuffWgsclip, 2000, type="random")
-plot(heron_psuedo)
-lhi_psuedo<-spsample(lhiBuffWgsclip, 2000, type="random")
+#heron_psuedo<-spsample(heronBuffWgsclip, 2000, type="random")
+#plot(heron_psuedo)
+#lhi_psuedo<-spsample(lhiBuffWgsclip, 2000, type="random")
 
 ######### ************** KERNEL CONSTRUCTION ************** ##########
 
@@ -186,11 +186,11 @@ for( i in kernels)
   
   if(length(grep("LT", i))==1) # grep throws a integer(0), use length() to capture in if statement
     {
-    r1<-rasterize(sp1[3,], shd) #makes raster of 50% UD at 0.25 deg resolution
+    r1<-rasterize(sp1[3,], chl) #makes raster of 50% UD at 0.1 deg resolution
     p1<-rasterToPoints(r1)
     dtp="ud50_pres"
     }else{
-    r1<-rasterize(spsample(sp1, n=900, type="random"), shd) # using rougly 3:1 background sample.. still zero inf?
+    r1<-rasterize(spsample(sp1, n=6000, type="random"), chl) # using rougly 3:1 background sample.. still zero inf?
     p1<-rasterToPoints(r1)
     dtp="psuedo_abs"
     }
@@ -212,7 +212,7 @@ for( i in kernels)
   ext_all<-rbind(ext_all, ext_v)  
 }   
 
-write.csv(ext_all, "spreads/paper2_extractionV1.csv", quote=F, row.names=F)
+write.csv(ext_all, "spreads/paper2_extractionV2.csv", quote=F, row.names=F)
 #writing out data, note as ive randomly sampled the psuedo abs data, it might be
 # a good idea to iterate modelling with additional random samples of more or less
 # to see when results stabalise... ie we have sampled the area comprehensivly
