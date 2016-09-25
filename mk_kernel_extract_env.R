@@ -110,8 +110,7 @@ ov1<-over(dat_old, datBuffWgs) # Using over solves lots of problems for spatial 
 dat_old<-dat_old[which(is.na((ov1))),]
 plot(dat_old) # FINALLY!!
 
-
-
+## Deciding on H value for kernels
 d1<-max(dat$ColDist) #1183621 m
 # need to define h value (Scale), thinking max dist in data between 2 points (10 mins)
 max(dat$Vel)/6 #max velocity is 74 km/h, so is 12km in 10 mins (resmaple time)
@@ -121,12 +120,15 @@ source("~/grive/phd/scripts/github_MIBA/batchUD.R")
 
 # decided to use 2011, 2013 PTT data, 2006 and 2012 seems to small 
 #heron_old[heron_old$Year==2011,]
-#dat[with(dat, trip_type=="L" & Colony=='Heron' & Year=="2015"),]
+#dat_old[with(dat_old, trip_type=="L" & Colony=='Heron' & Year=="2015"),]
+heron_old<-heron_old@data
+dat_old<-dat_old@data
 
 for(j in c(99,75,50,25))
 {
-  heron_old$ID<-j
-  UD_out<-batchUD(heron_old[heron_old$Year==2013,],
+  #heron_old$ID<-j
+  dat_old$ID<-j
+  UD_out<-batchUD(dat_old[with(dat_old, trip_type=="L" & Colony=='LHI' & Year=="2016"),],
                   Scale = hscale, UDLev = j)
   
   if(j==99){all_UDs<-UD_out}else{all_UDs<-spRbind(all_UDs, UD_out)}
@@ -139,24 +141,7 @@ all_UDs <- spTransform(all_UDs, CRS=CRS("+proj=longlat +ellps=WGS84"))
 
 plot(all_UDs, border=factor(all_UDs$id), lwd=2)
 
-writeOGR(all_UDs, layer="LTHeronPTT2013", dsn="spatial", driver="ESRI Shapefile", verbose=TRUE, overwrite=T)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+writeOGR(all_UDs, layer="LTLHIGPS2016", dsn="spatial", driver="ESRI Shapefile", verbose=TRUE, overwrite=T)
 
 
 #read in climatology env data
@@ -170,6 +155,8 @@ tmc<-raster("~/grive/phd/sourced_data/env_data/climatologies/thermocline_3.tif")
 smt<-raster("/home/mark/grive/phd/sourced_data/env_data/seamounts/d_seamounts_wgs.tif")
 bty<-raster("~/grive/phd/sourced_data/env_data/phd_bathy/GRIDONE_2D_100.0_-45.0_180.0_40.0.nc")
 
+env_vars<-c(sst, shd, ekm, chl, wnd, tmc, smt, bty)
+
 #read in seapodym data
 
 bet_adu<-raster("/home/mark/grive/phd/sourced_data/SEAPODYM/month_ave_intermin_1deg_ref2015/bet_adu_03_ave.tif")
@@ -182,10 +169,50 @@ yft_adu<-raster("/home/mark/grive/phd/sourced_data/SEAPODYM/month_ave_intermin_1
 yft_juv<-raster("/home/mark/grive/phd/sourced_data/SEAPODYM/month_ave_intermin_1deg_ref2015/yft_juv_03_ave.tif")
 yft_tot<-raster("/home/mark/grive/phd/sourced_data/SEAPODYM/month_ave_intermin_1deg_ref2015/yft_tot_03_ave.tif")
 
+tun_stack<-stack(bet_adu, bet_juv, bet_tot, skj_adu, skj_juv, skj_tot, yft_adu, yft_juv, yft_tot)
 
+kernels<-list.files("spatial")
+kernels<-kernels[grep("shp", kernels)]
+kernels<-kernels[-c(9,10)]
 
+#Construct standardised sampling grid so even and fair of sampling of different resolution datasets
+# set resolution at 0.25 degree, good comprimise between 0.01 bathy and 1 deg tuna or, 2 deg thermo.. hmm not sure about that one
 
+ext_all<-NULL
+for( i in kernels)
+  {
+  sp1<-readOGR(dsn=paste("/home/mark/grive/phd/analyses/paper2/spatial/",
+              i, sep=""), layer=substr(i, 1, (nchar(i)-4)))
+  
+  if(length(grep("LT", i))==1) # grep throws a integer(0), use length() to capture in if statement
+    {
+    r1<-rasterize(sp1[3,], shd) #makes raster of 50% UD at 0.25 deg resolution
+    p1<-rasterToPoints(r1)
+    dtp="ud50_pres"
+    }else{
+    r1<-rasterize(spsample(sp1, n=900, type="random"), shd) #makes raster of 50% UD at 0.25 deg resolution
+    p1<-rasterToPoints(r1)
+    dtp="psuedo_abs"
+    }
+        
+    #plot(sp1[3,])
+    #plot(SpatialPoints(p1), add=T, col=2)
+  ext_v<-data.frame(Longitude=p1[,1], Latitude=p1[,2], dtyp=dtp, dset=substr(i, 1, (nchar(i)-4)), 
+                      sst=1, shd=1, ekm=1, chl=1, wnd=1, tmc=1, smt=1, bty=1)
+  counter=0
+  for(j in env_vars )
+      {
+      counter<-counter+1
+      e1<-extract(j, ext_v[,1:2], buffer=20000, fun=mean) # extract all pixels within 20 km of point and average
+      ext_v[,4+counter]<-e1
+      }
+     
+  e2<-extract(tun_stack, ext_v[,1:2]) # no point using the buffer here as pixels at 1 degree
+  ext_v<-cbind(ext_v, e2)
+  ext_all<-rbind(ext_all, ext_v)  
+}   
 
+ # when extracting from tuna data as so big use a buffer blend.. or not?
 
 
 
