@@ -190,7 +190,7 @@ for( i in kernels)
     p1<-rasterToPoints(r1)
     dtp="ud50_pres"
     }else{
-    r1<-rasterize(spsample(sp1, n=900, type="random"), shd) #makes raster of 50% UD at 0.25 deg resolution
+    r1<-rasterize(spsample(sp1, n=900, type="random"), shd) # using rougly 3:1 background sample.. still zero inf?
     p1<-rasterToPoints(r1)
     dtp="psuedo_abs"
     }
@@ -203,7 +203,7 @@ for( i in kernels)
   for(j in env_vars )
       {
       counter<-counter+1
-      e1<-extract(j, ext_v[,1:2], buffer=20000, fun=mean) # extract all pixels within 20 km of point and average
+      e1<-extract(j, ext_v[,1:2]) # extract all pixels within 20 km of point and average
       ext_v[,4+counter]<-e1
       }
      
@@ -212,7 +212,10 @@ for( i in kernels)
   ext_all<-rbind(ext_all, ext_v)  
 }   
 
- # when extracting from tuna data as so big use a buffer blend.. or not?
+write.csv(ext_all, "spreads/paper2_extractionV1.csv", quote=F, row.names=F)
+#writing out data, note as ive randomly sampled the psuedo abs data, it might be
+# a good idea to iterate modelling with additional random samples of more or less
+# to see when results stabalise... ie we have sampled the area comprehensivly
 
 
 
