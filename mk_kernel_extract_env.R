@@ -46,6 +46,12 @@ heronBuffWgsclip<-gDifference(heronBuffWgs, world) # warning but should be ok (b
 lhiBuffWgsclip<-gDifference(lhiBuffWgs, world) # warning but should be ok (bassically the smae proj)
 plot(heronBuffWgsclip) # edited out bit beyond cape york in qgis
 
+## extra clip out bottom of lhi range against birdlife range map
+notrange<-readOGR(dsn="/home/mark/grive/phd/sourced_data/otherGIS/not_WTSH_range.shp", layer="not_WTSH_range")
+
+lhiBuffWgsclip<-gDifference(lhiBuffWgsclip, notrange) 
+plot(lhiBuffWgsclip)
+
 writeOGR(SpatialPolygonsDataFrame(heronBuffWgsclip, data.frame(ID=1)), layer="heronBuff", dsn="spatial", driver="ESRI Shapefile", verbose=TRUE, overwrite=T)
 writeOGR(SpatialPolygonsDataFrame(lhiBuffWgsclip, data.frame(ID=1)), layer="lhiBuff", dsn="spatial", driver="ESRI Shapefile", verbose=TRUE, overwrite=T)
 
@@ -190,7 +196,8 @@ for( i in kernels)
     p1<-rasterToPoints(r1)
     dtp="ud50_pres"
     }else{
-    r1<-rasterize(spsample(sp1, n=6000, type="random"), chl) # using rougly 3:1 background sample.. still zero inf?
+    #r1<-rasterize(spsample(sp1, n=6000, type="random"), chl) # using rougly 3:1 background sample.. still zero inf?
+    r1<-rasterize(sp1, chl) # here we extract all points and will do sample() testing as part of the modelling
     p1<-rasterToPoints(r1)
     dtp="psuedo_abs"
     }
@@ -212,7 +219,7 @@ for( i in kernels)
   ext_all<-rbind(ext_all, ext_v)  
 }   
 
-write.csv(ext_all, "spreads/paper2_extractionV2.csv", quote=F, row.names=F)
+write.csv(ext_all, "spreads/paper2_extractionV3.csv", quote=F, row.names=F)
 #writing out data, note as ive randomly sampled the psuedo abs data, it might be
 # a good idea to iterate modelling with additional random samples of more or less
 # to see when results stabalise... ie we have sampled the area comprehensivly
