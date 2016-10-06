@@ -2,62 +2,46 @@
 # Extract env data using GPS foraging locations against transiting locations
 
 rm(list=ls())
-
-library(ggplot2)
-#devtools::install_github("rmendels/xtractomatic")
-library(xtractomatic)
-
-setwd("~/grive/phd/analyses/paper2")
-
-dat<-read.csv("~/grive/phd/analyses/tracking_data_pot/GPS_141516_clean_resamp_tripsplit_hmm_attribs.csv", h=T)
-
-#prepdata
-
-dat<-dat[dat$trip_type=="L",]
-qplot(Longitude, Latitude, data=dat, colour=factor(Year))
-
-# good no 2014 heron in there.. dont think there are any LT anyway
-
-## Use product code from here:http://coastwatch.pfel.noaa.gov/coastwatch/CWBrowserWW360.jsp?get=griddata
-## followed by time unit in dtype parameter, by nchar == 11|12 it allows products not included in original xtracto code to be downloaded
-
-searchData(searchList = list(list("varname", "chl"),
-                             list("datasetname", "8day")))
-
-# chl use mbchla8day or mhchla8day or erdVH2chla8day
-# sst agssta8day or erdMBsstd8day or jplMURSST41SST
-# ssh tasshd1day
-# wind erdQAstress1daymodStress
-# sst anomaly jplMURSST41anom1day
-
-# should do a extract3d on the blended sst anomaly
-"nrlHycomGLBu008e911S", "erdVH3chla8day", "erdMH1chla8day",
-  "erdMBsstd8day", "ncdcOisst2Agg",
-  "erdQAstress1daymodStress", "jplMURSST41anom1day", "erdAGtanm8day")
-                      
-
-
-# trial with rerdap
+# rerdap
 library(rerddap)
 library(raster)
 library(ncdf4)
+setwd("~/grive/phd/analyses/paper2")
+
+# We use rerddap package to make direct calls to the erddap server and get 
+# gridded data via the OPeNDAP hyperslab protocol??
+
+#product code from here:
+#https://coastwatch.pfeg.noaa.gov/erddap/griddap/index.html?page=1&itemsPerPage=1000
+
+# chl use erdVH3chla8day or erdMH1chla8day 
+# sst erdAGssta8day or ncdcOisst2Agg
+# ssh nrlHycomGLBu008e911S
+# wind stress and upwelling erdQMstress1day
+# sst anomaly ncdcOisst2Agg or erdAGtanm8day
+
+# should do a extract3d on the blended sst anomaly
+"nrlHycomGLBu008e911S", "erdVH3chla8day", "erdMH1chla8day",
+  "erdAGssta8day", "ncdcOisst2Agg", "erdAGtanm8day"
+  "erdQMstress1day" 
+                      
 # we're gonna save and export as a .nc file as waaaaaay smaller than csv file size (50 vs 600 Mb)
 
-ed_search(query = 'erdVH3chla8day', which = "grid")$info
+ed_search(query = 'erdQMstress1day', which = "grid")$info
 
-info("ncdcOisst2Agg")
+info("erdQMstress1day")
 
-(res <- griddap("ncdcOisst2Agg",
+(res <- griddap("erdQMstress1day",
                 time = c('2014-02-01', '2014-04-30'),
                 latitude = c(-10, -42),
                 longitude = c(140, 170))) 
 
-(res2 <- griddap("ncdcOisst2Agg",
+(res2 <- griddap("erdQMstress1day",
                 time = c('2015-02-01', '2015-04-30'),
                 latitude = c(-10, -42),
                 longitude = c(140, 170)))
 
-(res3 <- griddap("ncdcOisst2Agg",
+(res3 <- griddap("erdQMstress1day",
                 time = c('2016-02-01', '2016-04-30'),
                 latitude = c(-10, -42),
                 longitude = c(140, 170)))
@@ -75,8 +59,8 @@ for( i in unique(k$data$time))
   r1<-raster(xmn=min(d1$lon), xmx=max(d1$lon), ymn=min(d1$lat), ymx=max(d1$lat),
              nrows=length(unique(d1$lat)), ncols=length(unique(d1$lon)), 
              vals=d1[,4], crs=CRS("+proj=longlat +ellps=WGS84"))
-  
-  r1<-flip(r1, direction="y") # turn on for ssh
+            # the correct column needs to be set for vals, normally 4
+  r1<-flip(r1, direction="y") # turn off for chla
   
   if(which(i==unique(k$data$time))==1){st1<-r1}else{
     st1<-stack(st1, r1)}
@@ -100,13 +84,13 @@ megastack<-setZ(megastack,
 
 
 # Save the raster file as a netCDF
-outfile <- paste("sstA_ncdcOisst2Agg.nc")
+outfile <- paste("sst_erdQMstress1day_ekm.nc")
 setwd("~/grive/phd/sourced_data/env_data/erdap_hires")
-writeRaster(megastack, outfile, overwrite=TRUE, format="CDF", varname="sstA", varunit="deg C", 
-            longname="SST anomoly -- ncdcOisst2Agg", xname="lon", yname="lat",
+writeRaster(megastack, outfile, overwrite=TRUE, format="CDF", varname="ekm upwelling", varunit="m s-1", 
+            longname="Wind -- erdQMstress1day", xname="lon", yname="lat",
             zname="Date", zunit="numeric")
 
-data.nc<- nc_open("chla_erdVH3chla8day.nc")
+data.nc<- nc_open("ssh_141516.nc")
 Zdim = ncvar_get(data.nc,varid="Date")
 
 #print(Zdim)
@@ -132,3 +116,14 @@ Zdim = ncvar_get(data.nc,varid="Date")
 #"ncdcOisst2Agg", time = c('2014-02-01', '2014-04-30'),
 #"ncdcOisst2Agg",time = c('2015-02-01', '2015-04-30'),
 #"ncdcOisst2Agg",time = c('2016-02-01', '2016-04-30'),
+
+#erdAGssta8day
+#"erdAGssta8day", time = c('2014-02-01', '2014-04-30'),
+#"erdAGssta8day",time = c('2015-02-01', '2015-04-30'),
+#"erdAGssta8day",time = c('2016-02-01', '2016-04-17'), end of timelimited
+
+#erdQMstress1day # we used wind stress modulus and ekman upwelling products from this variable
+#"erdQMstress1day", time = c('2014-02-01', '2014-04-30'),
+#"erdQMstress1day",time = c('2015-02-01', '2015-04-30'),
+#"erdQMstress1day",time = c('2016-02-01', '2016-04-30'),
+
