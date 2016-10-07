@@ -116,24 +116,12 @@ r2<-raster("sst_ncdcOisst2Agg.nc", band=r2015[i])
 r3<-raster("sst_ncdcOisst2Agg.nc", band=r2016[i])
   
 col.l <- colorRampPalette(c('black','blue','cyan','yellow', 'orange', 'red'))(20)
-p1<-levelplot(r1, contour=F, margin=F,scales=list(draw=FALSE) , at=13:33, col.regions=col.l, ylab= NULL, xlab= NULL, colorkey=T,main=paste(r1@z[[1]]))+layer(sp.polygons(lhi14[c(1,3),], col=c("dark gray","red")))
-p2<-levelplot(r2, contour=F, margin=F,scales=list(draw=FALSE) ,ylab= NULL,at=13:33,col.regions=col.l, xlab= NULL,colorkey=T, main=paste(r2@z[[1]]))+layer(sp.polygons(lhi15[c(1,3),], col=c("dark gray","red")))
-p3<-levelplot(r3, contour=F, margin=F,scales=list(draw=FALSE) ,at=13:33,col.regions=col.l,ylab= NULL, xlab= NULL,colorkey=T, main=paste(r3@z[[1]]))+layer(sp.polygons(lhi16[c(1,3),], col=c("dark gray","red")))
+p1<-levelplot(r1, contour=T, margin=F,scales=list(draw=FALSE) , at=13:33, col.regions=col.l, ylab= NULL, xlab= NULL, colorkey=T,main=paste(r1@z[[1]]))+layer(sp.polygons(lhi14[c(1,3),], col=c("dark gray","red")))
+p2<-levelplot(r2, contour=T, margin=F,scales=list(draw=FALSE) ,ylab= NULL,at=13:33,col.regions=col.l, xlab= NULL,colorkey=T, main=paste(r2@z[[1]]))+layer(sp.polygons(lhi15[c(1,3),], col=c("dark gray","red")))
+p3<-levelplot(r3, contour=T, margin=F,scales=list(draw=FALSE) ,at=13:33,col.regions=col.l,ylab= NULL, xlab= NULL,colorkey=T, main=paste(r3@z[[1]]))+layer(sp.polygons(lhi16[c(1,3),], col=c("dark gray","red")))
 grid.arrange(p1,p2,p3, ncol=3)}
 
-}, interval=1.5, "sst_141516V3.gif", ani.width=1500, ani.height=500)
-
-
-saveGIF({
-  for (i in yft){
-    ras<-raster(paste("yft_interim_1deg_ref2015/YFT/run-1x30d/",
-                      i, sep=""), varname="yft_adu")
-    #plot(levelplot(ras, contour=T, margin=F, main=i,at=c(0,0.01, 0.02, 0.03, 0.04,0.05, 0.06, 0.07, 0.08,0.09, 0.1, 0.15, 0.2, 0.25, 0.3)))
-    plot(levelplot(ras, contour=T, margin=F, main=substr(i, 34, 41)))
-    
-  } 
-}, interval=1, "yft_adu_all.gif")
-
+}, interval=1.5, "sst_141516V4.gif", ani.width=1500, ani.height=500)
 
 #print(Zdim)
 
@@ -190,5 +178,64 @@ oceo<-list.files("~/grive/phd/sourced_data/env_data/erdap_hires")
 data.nc<- nc_open("~/grive/phd/sourced_data/env_data/erdap_hires.nc")
 Zdim = ncvar_get(data.nc,varid="Date")
 
-#print(Zdim)
+d_chlMH1<- nc_open("~/grive/phd/sourced_data/env_data/erdap_hires/chla_erdMH1chla8day.nc")
+d_chlVH3<- nc_open("~/grive/phd/sourced_data/env_data/erdap_hires/chla_erdVH3chla8day.nc")
+d_ekmU<- nc_open("~/grive/phd/sourced_data/env_data/erdap_hires/ekmU_erdQMstress8day.nc")
+d_modW<- nc_open("~/grive/phd/sourced_data/env_data/erdap_hires/modW_erdQMstress8day.nc")
+d_sstAG<- nc_open("~/grive/phd/sourced_data/env_data/erdap_hires/sst_erdAGssta8day.nc")
+d_sstOi<- nc_open("~/grive/phd/sourced_data/env_data/erdap_hires/sst_ncdcOisst2Agg.nc")
+d_AsstAG<- nc_open("~/grive/phd/sourced_data/env_data/erdap_hires/sstA_erdAGtanm8day.nc")
+d_AsstOi<- nc_open("~/grive/phd/sourced_data/env_data/erdap_hires/sstA_ncdcOisst2Agg.nc")
+d_sshHy<- nc_open("~/grive/phd/sourced_data/env_data/erdap_hires/ssh_nrlHycomGLBu008e911S.nc")
+
+d_chlMH1_D<-ncvar_get(d_chlMH1,varid="Date") 
+d_chlVH3_D<- ncvar_get(d_chlVH3,varid="Date")
+d_ekmU_D<-ncvar_get(d_ekmU,varid="Date")
+d_modW_D<- ncvar_get(d_modW,varid="Date")
+d_sstAG_D<- ncvar_get(d_sstAG,varid="Date")
+d_sstOi_D<- ncvar_get(d_sstOi,varid="Date")
+d_AsstAG_D<- ncvar_get(d_AsstAG,varid="Date")
+d_AsstOi_D<- ncvar_get(d_AsstOi,varid="Date")
+d_sshHy_D<- ncvar_get(d_sshHy,varid="Date")
+
+
+r2014<-grep("2014", Zdim)
+r2015<-grep("2015", Zdim)
+r2016<-grep("2016", Zdim)
+
+r1<-raster("sst_ncdcOisst2Agg.nc", band=r2014[i])  
+r2<-raster("sst_ncdcOisst2Agg.nc", band=r2015[i])
+r3<-raster("sst_ncdcOisst2Agg.nc", band=r2016[i])
+
+dat$chlMH1<-0
+dat$chlVH3<-0
+dat$ekmU<-0
+dat$modW<-0
+dat$sstAG<-0
+dat$sstOi<-0
+dat$AsstAG<-0
+dat$AsstOi<-0
+dat$sshHy<-0
+
+setwd("~/grive/phd/sourced_data/env_data/erdap_hires")
+
+for( i in unique(dat$DateAEST))
+  {
+  # chlMH1
+ iTT<-as.double(as.POSIXct(strptime(i, "%Y-%m-%d"), "GMT"))
+ 
+ k1<-which(min(sqrt((iTT-as.double(as.POSIXct(strptime(d_sshHy_D, "%Y%m%d"), "GMT")))^2))==
+         sqrt((iTT-as.double(as.POSIXct(strptime(d_sshHy_D, "%Y%m%d"), "GMT")))^2))
+ 
+ dat[dat$DateAEST==i,]$sshHy<-extract(raster("ssh_nrlHycomGLBu008e911S.nc", band=k1),
+                                      data.frame(dat[dat$DateAEST==i,]$Longitude,
+                                                 dat[dat$DateAEST==i,]$Latitude))
+ 
+  #dater$TrackTime <- as.double(dater$DateTime)
+  
+  #dater$DateTime <- as.POSIXct(strptime(dater$DateTime, "%Y-%m-%d %I:%M:%S %p"), "GMT")
+  
+  dater$year<-as.numeric(format(dater$DateTime, "%Y"))
+  
+
 
