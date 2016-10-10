@@ -175,8 +175,6 @@ qplot(Longitude, Latitude, data=dat, colour=factor(Year))
 # good no 2014 heron in there.. dont think there are any LT anyway
 
 oceo<-list.files("~/grive/phd/sourced_data/env_data/erdap_hires")
-data.nc<- nc_open("~/grive/phd/sourced_data/env_data/erdap_hires.nc")
-Zdim = ncvar_get(data.nc,varid="Date")
 
 d_chlMH1<- nc_open("~/grive/phd/sourced_data/env_data/erdap_hires/chla_erdMH1chla8day.nc")
 d_chlVH3<- nc_open("~/grive/phd/sourced_data/env_data/erdap_hires/chla_erdVH3chla8day.nc")
@@ -198,15 +196,6 @@ d_AsstAG_D<- ncvar_get(d_AsstAG,varid="Date")
 d_AsstOi_D<- ncvar_get(d_AsstOi,varid="Date")
 d_sshHy_D<- ncvar_get(d_sshHy,varid="Date")
 
-
-r2014<-grep("2014", Zdim)
-r2015<-grep("2015", Zdim)
-r2016<-grep("2016", Zdim)
-
-r1<-raster("sst_ncdcOisst2Agg.nc", band=r2014[i])  
-r2<-raster("sst_ncdcOisst2Agg.nc", band=r2015[i])
-r3<-raster("sst_ncdcOisst2Agg.nc", band=r2016[i])
-
 dat$chlMH1<-0
 dat$chlVH3<-0
 dat$ekmU<-0
@@ -220,22 +209,75 @@ dat$sshHy<-0
 setwd("~/grive/phd/sourced_data/env_data/erdap_hires")
 
 for( i in unique(dat$DateAEST))
-  {
-  # chlMH1
+ {
  iTT<-as.double(as.POSIXct(strptime(i, "%Y-%m-%d"), "GMT"))
  
+ #sshHy
  k1<-which(min(sqrt((iTT-as.double(as.POSIXct(strptime(d_sshHy_D, "%Y%m%d"), "GMT")))^2))==
          sqrt((iTT-as.double(as.POSIXct(strptime(d_sshHy_D, "%Y%m%d"), "GMT")))^2))
  
- dat[dat$DateAEST==i,]$sshHy<-extract(raster("ssh_nrlHycomGLBu008e911S.nc", band=k1),
+ dat[dat$DateAEST==i,]$sshHy<-extract(raster("ssh_nrlHycomGLBu008e911S.nc", band=k1[1]),
                                       data.frame(dat[dat$DateAEST==i,]$Longitude,
                                                  dat[dat$DateAEST==i,]$Latitude))
+ #chlMH1
+ k1<-which(min(sqrt((iTT-as.double(as.POSIXct(strptime(d_chlMH1_D, "%Y%m%d"), "GMT")))^2))==
+             sqrt((iTT-as.double(as.POSIXct(strptime(d_chlMH1_D, "%Y%m%d"), "GMT")))^2))
  
-  #dater$TrackTime <- as.double(dater$DateTime)
-  
-  #dater$DateTime <- as.POSIXct(strptime(dater$DateTime, "%Y-%m-%d %I:%M:%S %p"), "GMT")
-  
-  dater$year<-as.numeric(format(dater$DateTime, "%Y"))
-  
-
+ dat[dat$DateAEST==i,]$chlMH1<-extract(raster("chla_erdMH1chla8day.nc", band=k1[1]),
+                                      data.frame(dat[dat$DateAEST==i,]$Longitude,
+                                                 dat[dat$DateAEST==i,]$Latitude))
+ #chlVH3
+ k1<-which(min(sqrt((iTT-as.double(as.POSIXct(strptime(d_chlVH3_D, "%Y%m%d"), "GMT")))^2))==
+             sqrt((iTT-as.double(as.POSIXct(strptime(d_chlVH3_D, "%Y%m%d"), "GMT")))^2))
+ 
+ dat[dat$DateAEST==i,]$chlVH3<-extract(raster("chla_erdVH3chla8day.nc", band=k1[1]),
+                                       data.frame(dat[dat$DateAEST==i,]$Longitude,
+                                                  dat[dat$DateAEST==i,]$Latitude))
+ #ekmU
+ k1<-which(min(sqrt((iTT-as.double(as.POSIXct(strptime(d_ekmU_D, "%Y%m%d"), "GMT")))^2))==
+             sqrt((iTT-as.double(as.POSIXct(strptime(d_ekmU_D, "%Y%m%d"), "GMT")))^2))
+ 
+ dat[dat$DateAEST==i,]$ekmU<-extract(raster("ekmU_erdQMstress8day.nc", band=k1[1]),
+                                       data.frame(dat[dat$DateAEST==i,]$Longitude,
+                                                  dat[dat$DateAEST==i,]$Latitude))
+ #modW
+ k1<-which(min(sqrt((iTT-as.double(as.POSIXct(strptime(d_modW_D, "%Y%m%d"), "GMT")))^2))==
+             sqrt((iTT-as.double(as.POSIXct(strptime(d_modW_D, "%Y%m%d"), "GMT")))^2))
+ 
+ dat[dat$DateAEST==i,]$modW<-extract(raster("modW_erdQMstress8day.nc", band=k1[1]),
+                                     data.frame(dat[dat$DateAEST==i,]$Longitude,
+                                                dat[dat$DateAEST==i,]$Latitude))
+ #sstAG
+ k1<-which(min(sqrt((iTT-as.double(as.POSIXct(strptime(d_sstAG_D, "%Y%m%d"), "GMT")))^2))==
+             sqrt((iTT-as.double(as.POSIXct(strptime(d_sstAG_D, "%Y%m%d"), "GMT")))^2))
+ 
+ dat[dat$DateAEST==i,]$sstAG<-extract(raster("sst_erdAGssta8day.nc", band=k1[1]),
+                                     data.frame(dat[dat$DateAEST==i,]$Longitude,
+                                                dat[dat$DateAEST==i,]$Latitude))
+ #sstOi
+ k1<-which(min(sqrt((iTT-as.double(as.POSIXct(strptime(d_sstOi_D, "%Y%m%d"), "GMT")))^2))==
+             sqrt((iTT-as.double(as.POSIXct(strptime(d_sstOi_D, "%Y%m%d"), "GMT")))^2))
+ 
+ dat[dat$DateAEST==i,]$sstOi<-extract(raster("sst_ncdcOisst2Agg.nc", band=k1[1]),
+                                      data.frame(dat[dat$DateAEST==i,]$Longitude,
+                                                 dat[dat$DateAEST==i,]$Latitude))
+ #AsstAG
+ k1<-which(min(sqrt((iTT-as.double(as.POSIXct(strptime(d_AsstAG_D, "%Y%m%d"), "GMT")))^2))==
+             sqrt((iTT-as.double(as.POSIXct(strptime(d_AsstAG_D, "%Y%m%d"), "GMT")))^2))
+ 
+ dat[dat$DateAEST==i,]$AsstAG<-extract(raster("sstA_erdAGtanm8day.nc", band=k1[1]),
+                                      data.frame(dat[dat$DateAEST==i,]$Longitude,
+                                                 dat[dat$DateAEST==i,]$Latitude))
+ #AsstOi
+ k1<-which(min(sqrt((iTT-as.double(as.POSIXct(strptime(d_AsstOi_D, "%Y%m%d"), "GMT")))^2))==
+             sqrt((iTT-as.double(as.POSIXct(strptime(d_AsstOi_D, "%Y%m%d"), "GMT")))^2))
+ 
+ dat[dat$DateAEST==i,]$AsstOi<-extract(raster("sstA_ncdcOisst2Agg.nc", band=k1[1]),
+                                       data.frame(dat[dat$DateAEST==i,]$Longitude,
+                                                  dat[dat$DateAEST==i,]$Latitude))
+ print(i)
+ }
+ 
+ write.csv(dat, "~/grive/phd/analyses/tracking_data_pot/GPS_141516_clean_resamp_tripsplit_hmm_oceano_attribs.csv", quote=F, row.names=F)
+ 
 
