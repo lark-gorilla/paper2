@@ -26,21 +26,21 @@ library(ncdf4)
                       
 # we're gonna save and export as a .nc file as waaaaaay smaller than csv file size (50 vs 600 Mb)
 
-ed_search(query = 'erdQMstress1day', which = "grid")$info
+ed_search(query = 'erdMH1chla16day', which = "grid")$info
 
-info("erdQMstress1day")
+info("erdVH3chlamday")
 
-(res <- griddap("erdQMstress8day",
+(res <- griddap("erdMH1chlamday",
                 time = c('2014-02-01', '2014-04-30'),
                 latitude = c(-10, -42),
                 longitude = c(140, 170))) 
 
-(res2 <- griddap("erdQMstress8day",
+(res2 <- griddap("erdMH1chlamday",
                 time = c('2015-02-01', '2015-04-30'),
                 latitude = c(-10, -42),
                 longitude = c(140, 170)))
 
-(res3 <- griddap("erdQMstress8day",
+(res3 <- griddap("erdMH1chlamday",
                 time = c('2016-02-01', '2016-04-30'),
                 latitude = c(-10, -42),
                 longitude = c(140, 170)))
@@ -57,9 +57,9 @@ for( i in unique(k$data$time))
   d1<-k$data[k$data$time==i,]
   r1<-raster(xmn=min(d1$lon), xmx=max(d1$lon), ymn=min(d1$lat), ymx=max(d1$lat),
              nrows=length(unique(d1$lat)), ncols=length(unique(d1$lon)), 
-             vals=d1[,8], crs=CRS("+proj=longlat +ellps=WGS84"))
+             vals=d1[,4], crs=CRS("+proj=longlat +ellps=WGS84"))
             # the correct column needs to be set for vals, normally 4
-  r1<-flip(r1, direction="y") # turn off for chla
+  #r1<-flip(r1, direction="y") # turn off for chla
   
   if(which(i==unique(k$data$time))==1){st1<-r1}else{
     st1<-stack(st1, r1)}
@@ -83,10 +83,10 @@ megastack<-setZ(megastack,
 
 
 # Save the raster file as a netCDF
-outfile <- paste("ekmU_erdQMstress8day.nc")
+outfile <- paste("chl_erdMH1chlamday.nc")
 setwd("~/grive/phd/sourced_data/env_data/erdap_hires")
-writeRaster(megastack, outfile, overwrite=TRUE, format="CDF", varname="ekeman upwelling", varunit="m s-1", 
-            longname="Wind -- erdQMstress8day", xname="lon", yname="lat",
+writeRaster(megastack, outfile, overwrite=TRUE, format="CDF", varname="chl", varunit="mg m^-3", 
+            longname="CHLA -- erdMH1chlamday", xname="lon", yname="lat",
             zname="Date", zunit="numeric")
 
 data.nc<- nc_open("sst_ncdcOisst2Agg.nc")
@@ -136,11 +136,16 @@ grid.arrange(p1,p2,p3, ncol=3)}
 #"erdMH1chla8day", time = c('2014-02-01', '2014-04-30'),
 #"erdMH1chla8day",time = c('2015-02-01', '2015-04-30'),
 #"erdMH1chla8day",time = c('2016-02-01', '2016-04-30'),
-                
+
+#!! also did monthly erdMH1chlamday (same dates)
+
 #erdVH3chla8day
 #"erdVH3chla8day", time = c('2014-02-01', '2014-04-30'),
 #"erdVH3chla8day",time = c('2015-02-01', '2015-04-30'),
 #"erdVH3chla8day",time = c('2016-02-01', '2016-04-30'), # end date early
+
+#!! also did monthly erdVH3chlamday (same dates)
+
 
 #ncdcOisst2Agg # we used sst and anom products from this variable
 #"ncdcOisst2Agg", time = c('2014-02-01', '2014-04-30'),
@@ -176,6 +181,8 @@ qplot(Longitude, Latitude, data=dat, colour=factor(Year))
 
 oceo<-list.files("~/grive/phd/sourced_data/env_data/erdap_hires")
 
+d_chlMH1_M<- nc_open("~/grive/phd/sourced_data/env_data/erdap_hires/chl_erdMH1chlamday.nc")
+d_chlVH3_M<- nc_open("~/grive/phd/sourced_data/env_data/erdap_hires/chl_erdVH3chlamday.nc")
 d_chlMH1<- nc_open("~/grive/phd/sourced_data/env_data/erdap_hires/chla_erdMH1chla8day.nc")
 d_chlVH3<- nc_open("~/grive/phd/sourced_data/env_data/erdap_hires/chla_erdVH3chla8day.nc")
 d_ekmU<- nc_open("~/grive/phd/sourced_data/env_data/erdap_hires/ekmU_erdQMstress8day.nc")
@@ -186,6 +193,8 @@ d_AsstAG<- nc_open("~/grive/phd/sourced_data/env_data/erdap_hires/sstA_erdAGtanm
 d_AsstOi<- nc_open("~/grive/phd/sourced_data/env_data/erdap_hires/sstA_ncdcOisst2Agg.nc")
 d_sshHy<- nc_open("~/grive/phd/sourced_data/env_data/erdap_hires/ssh_nrlHycomGLBu008e911S.nc")
 
+d_chlMH1_M_D<-ncvar_get(d_chlMH1_M,varid="Date") 
+d_chlVH3_M_D<- ncvar_get(d_chlVH3_M,varid="Date")
 d_chlMH1_D<-ncvar_get(d_chlMH1,varid="Date") 
 d_chlVH3_D<- ncvar_get(d_chlVH3,varid="Date")
 d_ekmU_D<-ncvar_get(d_ekmU,varid="Date")
@@ -196,6 +205,8 @@ d_AsstAG_D<- ncvar_get(d_AsstAG,varid="Date")
 d_AsstOi_D<- ncvar_get(d_AsstOi,varid="Date")
 d_sshHy_D<- ncvar_get(d_sshHy,varid="Date")
 
+dat$chlMH1_M<-0
+dat$chlVH3_M<-0
 dat$chlMH1<-0
 dat$chlVH3<-0
 dat$ekmU<-0
@@ -219,13 +230,27 @@ for( i in unique(dat$DateAEST))
  dat[dat$DateAEST==i,]$sshHy<-extract(raster("ssh_nrlHycomGLBu008e911S.nc", band=k1[1]),
                                       data.frame(dat[dat$DateAEST==i,]$Longitude,
                                                  dat[dat$DateAEST==i,]$Latitude))
+ #chlMH1_M
+ k1<-which(min(sqrt((iTT-as.double(as.POSIXct(strptime(d_chlMH1_M_D, "%Y%m%d"), "GMT")))^2))==
+             sqrt((iTT-as.double(as.POSIXct(strptime(d_chlMH1_M_D, "%Y%m%d"), "GMT")))^2))
+ 
+ dat[dat$DateAEST==i,]$chlMH1_M<-extract(raster("chl_erdMH1chlamday.nc", band=k1[1]),
+                                      data.frame(dat[dat$DateAEST==i,]$Longitude,
+                                                 dat[dat$DateAEST==i,]$Latitude))
+ #chlVH3_M
+ k1<-which(min(sqrt((iTT-as.double(as.POSIXct(strptime(d_chlVH3_M_D, "%Y%m%d"), "GMT")))^2))==
+             sqrt((iTT-as.double(as.POSIXct(strptime(d_chlVH3_M_D, "%Y%m%d"), "GMT")))^2))
+ 
+ dat[dat$DateAEST==i,]$chlVH3_M<-extract(raster("chl_erdVH3chlamday.nc", band=k1[1]),
+                                       data.frame(dat[dat$DateAEST==i,]$Longitude,
+                                                  dat[dat$DateAEST==i,]$Latitude))
  #chlMH1
  k1<-which(min(sqrt((iTT-as.double(as.POSIXct(strptime(d_chlMH1_D, "%Y%m%d"), "GMT")))^2))==
              sqrt((iTT-as.double(as.POSIXct(strptime(d_chlMH1_D, "%Y%m%d"), "GMT")))^2))
  
  dat[dat$DateAEST==i,]$chlMH1<-extract(raster("chla_erdMH1chla8day.nc", band=k1[1]),
-                                      data.frame(dat[dat$DateAEST==i,]$Longitude,
-                                                 dat[dat$DateAEST==i,]$Latitude))
+                                       data.frame(dat[dat$DateAEST==i,]$Longitude,
+                                                  dat[dat$DateAEST==i,]$Latitude))
  #chlVH3
  k1<-which(min(sqrt((iTT-as.double(as.POSIXct(strptime(d_chlVH3_D, "%Y%m%d"), "GMT")))^2))==
              sqrt((iTT-as.double(as.POSIXct(strptime(d_chlVH3_D, "%Y%m%d"), "GMT")))^2))
