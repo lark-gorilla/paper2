@@ -278,6 +278,13 @@ for( i in unique(dat$DateAEST))
  print(i)
  }
  
- write.csv(dat, "~/grive/phd/analyses/tracking_data_pot/GPS_141516_clean_resamp_tripsplit_hmm_oceano_attribs.csv", quote=F, row.names=F)
+#grab bathy and dist seamounts
+smt<-raster("/home/mark/grive/phd/sourced_data/env_data/seamounts/d_seamounts_wgs.tif")
+dat$smt<-extract(smt,data.frame(dat$Longitude,dat$Latitude))
+
+bty<-raster("~/grive/phd/sourced_data/env_data/phd_bathy/GRIDONE_2D_100.0_-45.0_180.0_40.0.nc")
+dat$bty<-extract(bty,data.frame(dat$Longitude,dat$Latitude))
+
+write.csv(dat, "~/grive/phd/analyses/paper2/spreads/GPS_LT_141516_hmm_oceano_attribs.csv", quote=F, row.names=F)
  
 
