@@ -5,9 +5,30 @@ rm(list=ls())
 library(ggplot2)
 library(reshape2)
 
+# extra functions for pairs multicollinearity exploration
+panel.cor <- function(x, y, digits=2, prefix="", cex.cor) 
+{
+  usr <- par("usr"); on.exit(par(usr)) 
+  par(usr = c(0, 1, 0, 1)) 
+  r <- abs(cor(x, y)) 
+  txt <- format(c(r, 0.123456789), digits=digits)[1] 
+  txt <- paste(prefix, txt, sep="") 
+  if(missing(cex.cor)) cex <- 0.8/strwidth(txt) 
+  
+  test <- cor.test(x,y) 
+  # borrowed from printCoefmat
+  Signif <- symnum(test$p.value, corr = FALSE, na = FALSE, 
+                   cutpoints = c(0, 0.001, 0.01, 0.05, 0.1, 1),
+                   symbols = c("***", "**", "*", ".", " ")) 
+  
+  text(0.5, 0.5, txt, cex = cex * r) 
+  text(.8, .8, Signif, cex=cex, col=2) 
+}
+
 setwd("~/grive/phd/analyses/paper2")
 
-dat<-read.csv("spreads/paper2_extractionV2.csv", h=T, strip.white=T)
+dat<-read.csv("spreads/paper2_extractionV3.csv", h=T, strip.white=T)
+# V3 takes all PA points
 
 d1<-melt(dat, id.vars=c("Latitude", "Longitude", "dset", "dtyp"))
 
@@ -38,6 +59,25 @@ dat[is.na(dat$chl),]$wnd<-NA
 dat[!is.na(dat$sst) & dat$sst<0,]$sst<-NA
 #weird ekem point
 dat[!is.na(dat$ekm) &dat$ekm< -0.00001,]$ekm<-NA
+#remove skj_juv outliers
+dat[which(dat$skj_juv_03_ave>28),]$skj_juv_03_ave<-NA
+
+
+## NOW we do naomit! 
+## This is integral to modelling with the IT approach, because
+## when subset models are created, they have different numbers of NAs
+## and therefore data: they are not comparable
+
+nrow(dat)
+nrow(na.omit(dat))
+dat<-na.omit(dat)
+# mop up some presence stragglers that get cut by the na.omit
+dat<-dat[-which(dat$dset=="LTHeronPTT2013" & dat$Longitude<151.32 &
+            dat$Latitude<(-19.66)),]
+
+dat<-dat[-which(dat$dset=="LTHeronGPS2015" &
+                  dat$Longitude<153.24),]
+
 
 
 # how we looking now
@@ -60,7 +100,88 @@ dat$smt_sqt<-sqrt(dat$smt)
 dat$PA<-0
 dat[dat$dtyp=="ud50_pres",]$PA<-1 # making presence absence variable
 
-dat_heron<-dat[dat$dset=="heronBuff"  | dat$dset=="LTHeronGPS2015"  | 
+# setup colony datasets
+# here we randomly assign years of tracking data to psuedo absences
+# at a 1:n ratio
+
+heronPA<-dat[dat$dset=="heronBuff",]
+lhiPA<-dat[dat$dset=="lhiBuff",]
+
+n=3
+
+dat_heron<-rbind(dat[dat$dset=="LTHeronGPS2015",], 
+                 heronPA[sample(1:nrow(heronPA), 
+                                (nrow(dat[dat$dset=="LTHeronGPS2015",])*n)),],
+                 dat[dat$dset=="LTHeronPTT2011",], 
+                 heronPA[sample(1:nrow(heronPA), 
+                                (nrow(dat[dat$dset=="LTHeronPTT2011",])*n)),],
+                 dat[dat$dset=="LTHeronPTT2013",], 
+                 heronPA[sample(1:nrow(heronPA), 
+                                (nrow(dat[dat$dset=="LTHeronPTT2013",])*n)),])
+
+dat_heron$YRID<-factor(c(rep(2015, (nrow(dat_heron[dat_heron$dset==
+                      "LTHeronGPS2015",])*(n+1))),
+                  rep(2011, (nrow(dat_heron[dat_heron$dset==
+                      "LTHeronPTT2011",])*(n+1))),
+                  rep(2013, (nrow(dat_heron[dat_heron$dset==
+                      "LTHeronPTT2013",])*(n+1)))))
+ 
+# z-transform (scale and center) to make variables comparable on same scale
+
+library(vegan)
+dat_heron<-cbind(dat_heron[,24:25],
+           decostand(dat_heron[,c(5:7, 9,10,12:23)], method="standardize"))
+
+
+m1<-glm(PA~shd+ekm+chl_log+wnd+tmc+smt_sqt+bty+bet_adu_03_ave+
+          bet_juv_03_ave+yft_adu_03_ave+skj_juv_03_ave+YRID,
+        data=dat_heron, family="binomial")
+summary(m1)
+print(sum((resid(m1, type="pearson")^2))/df.residual(m1))
+library(verification)
+print(roc.area(dat_heron$PA, fitted(m1))$A)
+
+m2<-gam(PA~s(shd, k=3)+s(ekm, k=3)+s(chl_log, k=3)+s(wnd, k=3)+s(tmc, k=3)+
+          s(smt_sqt, k=3)+s(bty, k=3)+s(bet_adu_03_ave, k=3)+
+          s(bet_juv_03_ave, k=3)+s(yft_adu_03_ave, k=3)+s(skj_juv_03_ave, k=3)+YRID,
+        data=dat_heron, family="binomial")
+summary(m2)
+print(sum((resid(m2, type="pearson")^2))/df.residual(m2))
+library(verification)
+print(roc.area(dat_heron$PA, fitted(m2))$A)
+
+
+
+
+                 
+library(car)
+vif(lm(1:nrow(dat_heron)~sst+shd+ekm+chl_log+wnd+tmc+smt_sqt+bty+bet_adu_03_ave+
+         bet_juv_03_ave+bet_tot_03_ave+yft_adu_03_ave+
+         yft_juv_03_ave+yft_tot_03_ave+skj_adu_03_ave+
+         skj_juv_03_ave+skj_tot_03_ave, data=dat_heron))  
+
+vif(lm(1:nrow(dat_heron)~shd+ekm+chl_log+wnd+tmc+smt_sqt+bty+bet_adu_03_ave+
+         bet_juv_03_ave+yft_adu_03_ave+
+         skj_adu_03_ave,
+        data=dat_heron))
+
+# ok looks good, all values < 10, hmm skjadu and yftadu are corr according to 
+cor(dat_heron[,-(1:2)])
+
+#pairs(dat_heron[,-(1:2)], upper.panel = panel.smooth,lower.panel=panel.cor)
+pairs(dat_heron[,9:17], upper.panel = panel.smooth,lower.panel=panel.cor)
+# ok so actually for Heron I include both BET then
+# adult yft and juv skj. OR just include skj_adu as proxy for all
+
+d1<-melt(dat_heron, id.vars=c("PA", "YRID"))
+
+g1<-ggplot(data=d1, aes(y=PA, x=value))
+g1+geom_jitter(height=0.1)+geom_smooth(method="glm")+facet_wrap(~variable, scale="free")
+
+g1+geom_jitter(aes(colour=YRID),height=0.1, size=0.5)+geom_smooth(formula=y~s(x, k=5),method="gam")+facet_wrap(~variable, scale="free")
+# 
+  
+  dat[dat$dset=="heronBuff"  | dat$dset=="LTHeronGPS2015"  | 
                  dat$dset=="LTHeronPTT2011"  | dat$dset=="LTHeronPTT2013" , ]
 
 dat_lhi<-dat[dat$dset=="lhiBuff"  | dat$dset=="LTLHIGPS2014"  | 
@@ -101,7 +222,8 @@ vif(lm(1:nrow(dat_heron)~shd+ekm+chl_log+wnd+tmc+smt_sqt+bty+bet_adu_03_ave+
          skj_adu_03_ave
        , data=dat_heron))
 
-# ok looks good, all values < 10
+
+
 
 #library(PerformanceAnalytics)
 #chart.Correlation(dat_heron[,c(6,7,9,10,12,13,14,16,18,22)], histogram=F, pch=19)
@@ -222,15 +344,17 @@ it.out
 
 ### testing the number of psuedo absences
 
+hb<-dat_heron[dat_heron$dset=="heronBuff",]
 for(i in 1:50)
 {
-  d1<-rbind(dat_heron[dat_heron$dset=="LTHeronGPS2015",], hb[sample(1:nrow(hb), 5000),])
+  d1<-rbind(dat_heron[dat_heron$dset=="LTHeronGPS2015",], hb[sample(1:nrow(hb), 20000),])
   m1<-glm(PA~shd+ekm+chl_log+wnd+tmc+smt_sqt+bty+bet_adu_03_ave+
           bet_juv_03_ave+yft_adu_03_ave+skj_adu_03_ave,
         data=d1, family="binomial")
   print(sum((resid(m1, type="pearson")^2))/df.residual(m1))
 }
 # ok so seems like we need more psedo absences and this will mean a zinf model..
+install.packages("coefplot2",repos="http://www.math.mcmaster.ca/bolker/R", type="source")
 
 summary(m1)
 sum((resid(m1, type="pearson")^2))/df.residual(m1)
