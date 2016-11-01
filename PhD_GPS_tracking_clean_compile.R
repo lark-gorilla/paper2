@@ -276,6 +276,7 @@ trip_distances[trip_distances$time<24*4,]$trip_type<-"S"
 trip_distances[trip_distances$trip_type=="S" &
                  trip_distances$Returns=="N" &
                  trip_distances$fin_dist>202,]$trip_type<-"L"
+# this is a kind of best guess but need to validate these 'long' trips
 
 #write out trip distances
 
@@ -285,6 +286,9 @@ write.csv(trip_distances, "GPS_141516_trip_summary.csv", quote=F, row.names=F)
 ### Add some additional trip descriptor columns and write out
 dat$days<-trip_distances[match(dat$trip_id,trip_distances$trip),]$days
 dat$trip_type<-trip_distances[match(dat$trip_id,trip_distances$trip),]$trip_type
+# fix for some cheeky little LTs that are actually STs
+dat[dat$trip_id %in% c("25_02_15_06LW3", "28_03_15_04LW4",
+                       "16_02_16_41LW3", "18_02_16_22LW3"),]$trip_type<-"S"
 
 dat$Month<-substr(dat$DateAEST, 6,7)
 dat$Year<-substr(dat$DateAEST, 1,4)
@@ -304,4 +308,34 @@ library(RAtmosphere)
   dat$DayNight<-ifelse(coytime > suntime$sunrise & coytime < suntime$sunset, "DAY", "NIGHT")
 
 write.csv(dat, "GPS_141516_clean_resamp_tripsplit_hmm_attribs.csv", quote=F, row.names=F)
+
+# add in extra trip descriptor fields
+dat$DateTimeAEST<-paste(dat$DateAEST, dat$TimeAEST, sep="")
+dat$DateTimeAEST <- as.POSIXct(strptime(dat$DateTimeAEST, "%Y-%m-%d %H:%M:%S"), "GMT")
+
+trip_distances$stDateTime<-min(dat$DateTimeAEST)
+trip_distances$edDateTime<-min(dat$DateTimeAEST)
+for (i in trip_distances$trip)
+{
+  trip_distances[trip_distances$trip==i,]$stDateTime<-
+    min(dat[dat$trip_id==i,]$DateTimeAEST)
+  trip_distances[trip_distances$trip==i,]$edDateTime<-
+    max(dat[dat$trip_id==i,]$DateTimeAEST)
+print(i)
+}
+
+write.csv(trip_distances, "GPS_141516_trip_summary.csv", quote=F, row.names=F)
+# read back in now with return dates added
+trip_distances<-read.csv("GPS_141516_trip_summary.csv", h=T) 
+
+stDateTime<-as.POSIXlt(trip_distances$stDateTime, format = "%Y-%m-%d %H:%M:%S")
+
+DateTime_AR<-as.POSIXlt(trip_distances$Actual_return, format = "%d/%m/%Y %H:%M")
+
+trip_distances$Actual_time<-difftime(DateTime_AR,stDateTime, units="hours")
+
+write.csv(trip_distances, "GPS_141516_trip_summary.csv", quote=F, row.names=F)
+# re
+
+
 
