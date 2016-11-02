@@ -216,8 +216,26 @@ dat$sstOi<-0
 dat$AsstAG<-0
 dat$AsstOi<-0
 dat$sshHy<-0
+dat$yftA<-0
+dat$yftJ<-0
+dat$skjA<-0
+dat$skjJ<-0
+dat$betA<-0
+dat$betJ<-0
+
 
 setwd("~/grive/phd/sourced_data/env_data/erdap_hires")
+
+# tuna keys
+yftkey<-unique(substr(list.files("~/grive/phd/sourced_data/SEAPODYM/Inna_hires/yft_indeso_v2_2013-2015"),
+       23,30))
+
+skjkey<-unique(substr(list.files("~/grive/phd/sourced_data/SEAPODYM/Inna_hires/skj_indeso_v2_2013-2015"),
+      23,30))
+
+betkey<-unique(substr(list.files("~/grive/phd/sourced_data/SEAPODYM/Inna_hires/bet_indeso_v2_2013-2015"),
+      23,30))
+
 
 for( i in unique(dat$DateAEST))
  {
@@ -300,6 +318,44 @@ for( i in unique(dat$DateAEST))
  dat[dat$DateAEST==i,]$AsstOi<-extract(raster("sstA_ncdcOisst2Agg.nc", band=k1[1]),
                                        data.frame(dat[dat$DateAEST==i,]$Longitude,
                                                   dat[dat$DateAEST==i,]$Latitude))
+ #yft
+ k1<-which(min(sqrt((iTT-as.double(as.POSIXct(strptime(yftkey, "%Y%m%d"), "GMT")))^2))==
+             sqrt((iTT-as.double(as.POSIXct(strptime(yftkey, "%Y%m%d"), "GMT")))^2))
+ 
+ dat[dat$DateAEST==i,]$yftA<-extract(raster(paste("~/grive/phd/sourced_data/SEAPODYM/Inna_hires/yft_indeso_v2_2013-2015/extract_indeso_v2_YFT_",
+                                                  yftkey[k1], ".nc", sep=""), varname="yft_adu"),
+                                       data.frame(dat[dat$DateAEST==i,]$Longitude,
+                                                  dat[dat$DateAEST==i,]$Latitude))
+ dat[dat$DateAEST==i,]$yftJ<-extract(raster(paste("~/grive/phd/sourced_data/SEAPODYM/Inna_hires/yft_indeso_v2_2013-2015/extract_indeso_v2_YFT_",
+                                                 yftkey[k1], ".nc", sep=""), varname="yft_juv"),
+                                    data.frame(dat[dat$DateAEST==i,]$Longitude,
+                                               dat[dat$DateAEST==i,]$Latitude))
+ 
+ #skj
+ k1<-which(min(sqrt((iTT-as.double(as.POSIXct(strptime(skjkey, "%Y%m%d"), "GMT")))^2))==
+             sqrt((iTT-as.double(as.POSIXct(strptime(skjkey, "%Y%m%d"), "GMT")))^2))
+ 
+ dat[dat$DateAEST==i,]$skjA<-extract(raster(paste("~/grive/phd/sourced_data/SEAPODYM/Inna_hires/skj_indeso_v2_2013-2015/extract_indeso_v2_SKJ_",
+                                                  skjkey[k1], ".nc", sep=""), varname="skj_adu"),
+                                     data.frame(dat[dat$DateAEST==i,]$Longitude,
+                                                dat[dat$DateAEST==i,]$Latitude))
+ dat[dat$DateAEST==i,]$skjJ<-extract(raster(paste("~/grive/phd/sourced_data/SEAPODYM/Inna_hires/skj_indeso_v2_2013-2015/extract_indeso_v2_SKJ_",
+                                                  skjkey[k1], ".nc", sep=""), varname="skj_juv"),
+                                     data.frame(dat[dat$DateAEST==i,]$Longitude,
+                                                dat[dat$DateAEST==i,]$Latitude))
+ #bet
+ k1<-which(min(sqrt((iTT-as.double(as.POSIXct(strptime(betkey, "%Y%m%d"), "GMT")))^2))==
+             sqrt((iTT-as.double(as.POSIXct(strptime(betkey, "%Y%m%d"), "GMT")))^2))
+ 
+ dat[dat$DateAEST==i,]$betA<-extract(raster(paste("~/grive/phd/sourced_data/SEAPODYM/Inna_hires/bet_indeso_v2_2013-2015/extract_indeso_v2_BET_",
+                                                  betkey[k1], ".nc", sep=""), varname="bet_adu"),
+                                     data.frame(dat[dat$DateAEST==i,]$Longitude,
+                                                dat[dat$DateAEST==i,]$Latitude))
+ dat[dat$DateAEST==i,]$betJ<-extract(raster(paste("~/grive/phd/sourced_data/SEAPODYM/Inna_hires/bet_indeso_v2_2013-2015/extract_indeso_v2_BET_",
+                                                  betkey[k1], ".nc", sep=""), varname="bet_juv"),
+                                     data.frame(dat[dat$DateAEST==i,]$Longitude,
+                                                dat[dat$DateAEST==i,]$Latitude))
+ 
  print(i)
  }
  
@@ -312,4 +368,55 @@ dat$bty<-extract(bty,data.frame(dat$Longitude,dat$Latitude))
 
 write.csv(dat, "~/grive/phd/analyses/paper2/spreads/GPS_LT_141516_hmm_oceano_attribs.csv", quote=F, row.names=F)
  
+### tuna visualisation
 
+
+library(rasterVis)
+library(animation)
+library(gridExtra)
+library(rgdal)
+
+setwd("~/grive/phd/sourced_data/SEAPODYM/Inna_hires")
+tunkey<-unique(substr(list.files("~/grive/phd/sourced_data/SEAPODYM/Inna_hires/skj_indeso_v2_2013-2015"),
+                              23,30))
+
+saveGIF({
+  for(i in 1:154){
+    r1<-raster(paste("yft_indeso_v2_2013-2015/extract_indeso_v2_YFT_",
+                     tunkey[i], ".nc", sep=""), varname="yft_adu")
+    r2<-raster(paste("skj_indeso_v2_2013-2015/extract_indeso_v2_SKJ_",
+                     tunkey[i], ".nc", sep=""), varname="skj_adu")
+    r3<-raster(paste("bet_indeso_v2_2013-2015/extract_indeso_v2_BET_",
+                     tunkey[i], ".nc", sep=""), varname="bet_adu")
+    
+    col.l <- colorRampPalette(c('black','blue','cyan','yellow', 'orange', 'red'))(20)
+    p1<-levelplot(r1, contour=T, margin=F,scales=list(draw=FALSE) ,  col.regions=col.l, ylab= NULL, xlab= NULL, colorkey=T,main=tunkey[i])
+    p2<-levelplot(r2, contour=T, margin=F,scales=list(draw=FALSE) ,ylab= NULL,col.regions=col.l, xlab= NULL,colorkey=T, main="skj")
+    p3<-levelplot(r3, contour=T, margin=F,scales=list(draw=FALSE) ,col.regions=col.l,ylab= NULL, xlab= NULL,colorkey=T, main="bet")
+    grid.arrange(p1,p2,p3, ncol=3)}
+  
+}, interval=1.5, "hiresglobaltuna.gif", ani.width=1500, ani.height=500)
+
+
+lhi16<-readOGR(dsn="/home/mark/grive/phd/analyses/paper2/spatial/LTLHIGPS2016.shp", layer="LTLHIGPS2016")
+lhi15<-readOGR(dsn="/home/mark/grive/phd/analyses/paper2/spatial/LTLHIGPS2015.shp", layer="LTLHIGPS2015")
+lhi14<-readOGR(dsn="/home/mark/grive/phd/analyses/paper2/spatial/LTLHIGPS2014.shp", layer="LTLHIGPS2014")
+
+coraltasman<-extent(c(xmin=141, xmax=174, ymin=-45, ymax=-5))
+
+saveGIF({
+  for(i in 1:154){
+    r1<-crop(raster(paste("yft_indeso_v2_2013-2015/extract_indeso_v2_YFT_",
+                     tunkey[i], ".nc", sep=""), varname="yft_juv"),coraltasman)
+    r2<-crop(raster(paste("skj_indeso_v2_2013-2015/extract_indeso_v2_SKJ_",
+                     tunkey[i], ".nc", sep=""), varname="skj_juv"),coraltasman)
+    r3<-crop(raster(paste("bet_indeso_v2_2013-2015/extract_indeso_v2_BET_",
+                     tunkey[i], ".nc", sep=""), varname="bet_juv"),coraltasman)
+
+    col.l <- colorRampPalette(c('black','blue','cyan','yellow', 'orange', 'red'))(20)
+    p1<-levelplot(r1, contour=T, margin=F,scales=list(draw=FALSE) , at=seq(0,4,length.out=20), col.regions=col.l, ylab= NULL, xlab= NULL, colorkey=T,main=tunkey[i])
+    p2<-levelplot(r2, contour=T, margin=F,scales=list(draw=FALSE) ,at=seq(0,80,length.out=20),ylab= NULL,col.regions=col.l, xlab= NULL,colorkey=T, main="skj")
+    p3<-levelplot(r3, contour=T, margin=F,scales=list(draw=FALSE) ,at=seq(0,0.15,length.out=20),col.regions=col.l,ylab= NULL, xlab= NULL,colorkey=T, main="bet")
+    grid.arrange(p1,p2,p3, ncol=3)}
+  
+}, interval=1.5, "hiresAUStunajuv.gif", ani.width=1500, ani.height=500)
