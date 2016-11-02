@@ -1,4 +1,3 @@
-# 05/09/16 Bishops Castle, UK
 # read in weekly seapodym nc files, compile into monthly averages and sd products
 rm(list=ls())
 setwd("~/grive/phd/sourced_data/SEAPODYM")
