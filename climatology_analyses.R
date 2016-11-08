@@ -312,6 +312,68 @@ anova(m5, m5_interp)
 
 summary(m5_interp)
 
+## attempt to use Dominance Analysis to ascertain variable importance
+library(devtools)
+install_github("clbustos/dominanceAnalysis")
+library(dominanceanalysis)
+
+daCompleteDominance<-function(daRR) {
+  lapply(daRR$fits,dominanceMatrix)
+}
+
+daConditionalDominance<-function(daRR) {
+  daACBL<-daAverageContributionByLevel(daRR)
+  analize<-function(x) {
+    x<-x[,-1]
+    dominanceMatrix(x)
+  }
+  lapply(daACBL,analize)
+}
+
+daGeneralDominance<-function(daRR) {
+  daACBL<-daAverageContributionByLevel(daRR)
+  analize<-function(x) {
+    x<-x[,-1]
+    gm<-matrix(colMeans(x),1,ncol(x),dimnames=list(1,colnames(x)))
+    dominanceMatrix(gm)
+  }
+  lapply(daACBL,analize)
+}
+
+dm<-dominanceAnalysis(m5)# fails
+
+#slightly hacked version, had to remove 2 of the r2
+# metrics (Nagelkerke and Cox and Snell) as throwing NAs
+
+dm2<-function (x, constants = c(), fit.functions = "default", data = NULL, 
+          null.model = NULL, ...) 
+{
+  daModels <- daSubmodels(x, constants)
+  daRaw <- daRawResults(x, constants, fit.functions, data, 
+                        null.model, ...)
+  daRaw<-daRaw4r2
+  daRaw$fit.functions<-daRaw$fit.functions[c(1,4)]
+  daRaw$fits<-daRaw$fits[c(1,4)]
+  daRaw$base.fits<-daRaw$base.fits[,c(1,4)]
+  
+  daAverageByLevel <- daAverageContributionByLevel(daRaw)
+  daAverageGeneral <- lapply(daAverageByLevel, function(x) {
+    colMeans(x[, -1])
+  })
+  list(predictors = daModels$predictors, constants = daModels$constants, 
+       fit.functions = daRaw$fit.functions, fits = daRaw, contribution.by.level = daAverageByLevel, 
+       contribution.average = daAverageGeneral, complete = daCompleteDominance(daRaw), 
+       conditional = daConditionalDominance(daRaw), general = daGeneralDominance(daRaw))
+}
+
+dm<-dm2(m5) # works!
+#I'll be using McFaddens' r2
+dm$contribution.average$r2.m
+
+#make sure it lines up
+sum(dm$contribution.average$r2.m)
+pR2(m5) # yep :)
+
 #library(relaimpo)
 #calc.relimp(m2)  only work with guassian link
 
