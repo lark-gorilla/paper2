@@ -151,6 +151,10 @@ cor(dat_heron[,-(1:4)])
 pairs(dat_heron[,11:19], upper.panel = panel.smooth,lower.panel=panel.cor)
 # ok so actually for Heron I include both BET then
 # adult yft and juv skj
+# final one for model
+pairs(dat_heron[,c(6:12,15,17, 20, 21) ], upper.panel = panel.smooth,lower.panel=panel.cor)
+# looking at it in full, i would be tempted to remove shd and yellowfin adult
+
 
 m1<-glm(PA~shd+ekm+chl_log+wnd+tmc+smt_sqt+bty+bet_adu_03_ave+
           bet_juv_03_ave+yft_adu_03_ave+skj_juv_03_ave+YRID,
@@ -170,30 +174,150 @@ g1+geom_jitter(height=0.1, size=0.5)+geom_smooth(method="glm", colour=2)+
 
 # we would do below for each variable individually to see the suitability of a poly
 
-m_lin<-glm(PA~shd,data=dat_heron, family="binomial")
-m_pol<-glm(PA~poly(shd, 2),data=dat_heron, family="binomial")
-d1<-data.frame(PA=dat_heron$PA, shd=dat_heron$shd, m_lin=fitted(m_lin), m_pol=fitted(m_pol))
-g1<-ggplot(data=d1, aes(y=PA, x=shd))
-g1+geom_jitter(height=0.1, size=0.5)+geom_line(aes(y=m_lin, x=shd), colour=2)+
-  geom_line(aes(y=m_pol, x=shd), colour=3)
+m_lin<-glm(PA~bet_adu_03_ave,data=dat_heron, family="binomial")
+m_pol<-glm(PA~poly(bet_adu_03_ave, 2),data=dat_heron, family="binomial")
+d1<-data.frame(PA=dat_heron$PA, bet_adu_03_ave=dat_heron$bet_adu_03_ave, m_lin=fitted(m_lin), m_pol=fitted(m_pol))
+g1<-ggplot(data=d1, aes(y=PA, x=bet_adu_03_ave))
+g1+geom_jitter(height=0.1, size=0.5)+geom_line(aes(y=m_lin, x=bet_adu_03_ave), colour=2)+
+  geom_line(aes(y=m_pol, x=bet_adu_03_ave), colour=3)
 anova(m_lin, m_pol)
-#poly model better
+#poly model better in the case of bet_adu it gives the 0 to 1 warning so only use linear
+
+# It was important to work out what was causing the warning: glm.fit: fitted probabilities numerically 0 or 1 occurred
+# it was the  BET_ADU poly so its now removed and we can proceed!
 
 # global model
 
 m1<-glm(PA~poly(shd,2)+ekm+chl_log+wnd+poly(tmc, 2)+smt_sqt+poly(bty, 2)+
-          poly(bet_adu_03_ave,2)+bet_juv_03_ave+poly(yft_adu_03_ave,2)+
+          bet_adu_03_ave+bet_juv_03_ave+poly(yft_adu_03_ave,2)+
           poly(skj_juv_03_ave,2)+YRID,
         data=dat_heron, family="binomial")
 summary(m1)
 print(sum((resid(m1, type="pearson")^2))/df.residual(m1))
 library(verification)
 print(roc.area(dat_heron$PA, fitted(m1))$A)
+library(pscl)
+pR2(m1)
 
 ## spatial autocorrelation testing ##
 library(pgirmess)
 pgir1<-correlog(coords=dat_heron[,1:2], z=fitted(m1), method="Moran")
 
+# looking at variable importance/contribution
+summary(m1) # look to drop ekm and yrid and probs yft
+anova(m1) # anova tests terms sequentially
+library(survey)
+regTermTest(m1, "ekm")
+anova(m1, update(m1, ~.- ekm)) # basically tells the same as anova but gives significance too
+
+library(car)
+Anova(m1) # Anova from car tests terms according to marginality
+# i.e. after all other terms have been included
+# not much support from ekm, YRID or yft
+m2<-glm(PA~poly(shd,2)+chl_log+wnd+poly(tmc, 2)+smt_sqt+poly(bty, 2)+
+          bet_adu_03_ave+bet_juv_03_ave+
+          poly(skj_juv_03_ave,2),
+        data=dat_heron, family="binomial")
+
+anova(m1, m2); AIC(m1, m2)
+
+Anova(m2) # all appear significant
+
+# See if step methods give same result from the m1 model
+
+for.aic <- step(glm(PA~1,data=dat_heron, family="binomial"),
+                direction = "forward", scope = formula(m1), k = 2, trace = 1) # forward AIC
+for.bic <- step(glm(PA~1,data=dat_heron, family="binomial"),
+                direction = "forward", scope = formula(m1), k = log(nrow(dat_heron)), trace = 0) # forward BIC
+back.aic <- step(m1, direction = "backward", k = 2, trace = 0) # backward AIC
+back.bic <- step(m1, direction = "backward", k = log(nrow(dat_heron)), trace = 0) # backward BIC
+
+formula(for.aic);formula(for.bic);formula(back.aic);formula(back.bic);
+formula(m2)
+# so basically m2 and aic methods are the same, bic says remove shd also
+pR2(m2)
+pR2(for.aic)
+pR2(for.bic) # no diff really in r2
+
+anova(m2, for.aic, for.bic)
+library(survey)
+regTermTest(m2, "poly(shd, 2)") # could well lose him
+
+m3<-glm(PA~chl_log+wnd+poly(tmc, 2)+smt_sqt+poly(bty, 2)+
+          bet_adu_03_ave+bet_juv_03_ave+
+          poly(skj_juv_03_ave,2),
+        data=dat_heron, family="binomial")
+
+
+# looking at variable importance/contribution
+library(caret)
+varImp(m3) 
+summary(m3)
+# all looks good but bet_ju_03_ave is showing a negative trend rather than
+# a positive so is modelled wrong, this is probably due to collinearity
+# make sure it is not modelling correct
+
+temp<-dat_heron[1,-4]
+temp[1,]<-as.vector(apply(dat_heron[,-4], 2,median))
+
+heron_pred<-data.frame(bet_juv_03_ave=dat_heron$bet_juv_03_ave, 
+                       temp,YRID="2013")
+
+p1<-predict(m3, newdata=heron_pred, type="response")
+
+d1<-data.frame(PA=dat_heron$PA, bet_juv_03_ave=heron_pred$bet_juv_03_ave, pred=p1)
+g1<-ggplot(data=d1, aes(y=PA, x=bet_juv_03_ave))
+g1+geom_jitter(height=0.1, size=0.5)+geom_line(aes(y=pred, x=bet_juv_03_ave), colour=2)
+
+# yeh looks bad, see if removing it makes much difference
+m4<-update(m3, ~.- bet_juv_03_ave)
+anova(m3, m4)
+pR2(m3);pR2(m4) # doesnt add much at all
+
+summary(m4) # now the tmc poly looks insignificant
+
+m5<-glm(PA~chl_log+wnd+tmc+smt_sqt+poly(bty, 2)+
+          bet_adu_03_ave+
+          poly(skj_juv_03_ave,2),
+        data=dat_heron, family="binomial")
+
+anova(m4, m5)
+pR2(m4);pR2(m5) # yep get rid, go with m5
+
+# ok I think we're there
+print(sum((resid(m1, type="pearson")^2))/df.residual(m1))
+print(sum((resid(m5, type="pearson")^2))/df.residual(m5))
+library(verification)
+print(roc.area(dat_heron$PA, fitted(m1))$A)
+print(roc.area(dat_heron$PA, fitted(m5))$A)
+
+summary(m5)
+varImp(m5) # all looks good, could try removing tmc all together?
+
+m6<-update(m5, ~.- tmc)
+anova(m5, m6)
+pR2(m5);pR2(m6) # doesnt add much but
+regTermTest(m5, "tmc") # is still significant so keep
+
+library(hier.part) # see if we can kinda validate with hier.part
+hp<-hier.part(y=dat_heron$PA, x=dat_heron[,c(8:11,15, 20, 21) ], family="binomial")
+# ok so kinda the same but hier.part is sometimes dodgy:
+#http://journals.plos.org/plosone/article?id=10.1371/journal.pone.0011698
+
+m5_interp<-glm(PA~chl_log+wnd+tmc+smt_sqt+poly(bty, 2, raw=T)+
+                 bet_adu_03_ave+
+                 poly(skj_juv_03_ave,2, raw=T),
+               data=dat_heron, family="binomial")
+anova(m5, m5_interp)
+
+summary(m5_interp)
+
+#library(relaimpo)
+#calc.relimp(m2)  only work with guassian link
+
+# ok as I understand it the importance of the variables can be determined from the
+#coefficients IF they are all scaled, and the model is not doing anything funky.
+# to further investigate I need to keep googling logistic regression!
 
 # Information Theoretic approach
 
@@ -232,6 +356,38 @@ it.out <- it.out[order(it.out$delta),]
 it.out$w <- round(exp(-(1/2)*it.out$delta) / sum(exp(-(1/2)*it.out$delta)), 3)
 it.out$cum.w <- cumsum(it.out$w)
 it.out
+
+# additional trial with biologically plausable models
+m_intercept<-glm(PA~1, data=dat_heron, family="binomial")
+m_topo<-glm(PA~smt_sqt+poly(bty, 2), data=dat_heron, family="binomial")
+m_oceo<-glm(PA~poly(tmc, 2)+poly(shd, 2), data=dat_heron, family="binomial")
+m_prod<-glm(PA~chl_log, data=dat_heron, family="binomial")
+m_wnd<-glm(PA~wnd, data=dat_heron, family="binomial")
+m_yr<-glm(PA~YRID,data=dat_heron, family="binomial")
+m_liltun<-glm(PA~bet_juv_03_ave+poly(skj_juv_03_ave,2),
+            data=dat_heron, family="binomial")
+m_bigtun<-glm(PA~poly(bet_adu_03_ave,2)+  poly(yft_adu_03_ave,2),
+              data=dat_heron, family="binomial")
+
+temp<-AIC(m_intercept, m_topo, m_oceo, m_prod, m_wnd,  
+           m_liltun, m_bigtun, m_yr)
+
+mod.list<-list(m_intercept, m_topo, m_oceo, m_prod, m_wnd,  
+               m_liltun, m_bigtun, m_yr)
+
+it.out <- data.frame(loglik=sapply(mod.list, logLik), temp)
+it.out$delta <- it.out$AIC-min(it.out$AIC)
+it.out <- it.out[order(it.out$delta),]
+
+it.out$w <- round(exp(-(1/2)*it.out$delta) / sum(exp(-(1/2)*it.out$delta)), 3)
+it.out$cum.w <- cumsum(it.out$w)
+it.out
+
+# hmm try the dredge approach
+
+options(na.action = na.fail)
+GD1 <- dredge(m1, m.lim = c(NA,3))
+# I then write out subset (GD1, delta<300) for reference
 
 #######$ NOW for Lord Howe analyses ########
 
@@ -361,6 +517,27 @@ it.out <- it.out[order(it.out$delta),]
 it.out$w <- round(exp(-(1/2)*it.out$delta) / sum(exp(-(1/2)*it.out$delta)), 3)
 it.out$cum.w <- cumsum(it.out$w)
 it.out
+
+## playing with plotting model results
+
+m3<-glm(PA~shd+ekm+chl_log+wnd+poly(tmc, 2)+smt_sqt+poly(bty, 2)+
+          poly(bet_adu_03_ave,2)+bet_juv_03_ave+poly(yft_adu_03_ave,2)+
+          poly(skj_juv_03_ave,2)+YRID,
+        data=dat_heron, family="binomial")
+
+temp<-dat_heron[1,-4]
+temp[1,]<-as.vector(apply(dat_heron[,-4], 2,median))
+
+heron_pred<-data.frame(shd=dat_heron$shd, 
+                       temp,YRID="2013")
+
+p1<-predict(m1, newdata=heron_pred, type="response")
+
+d1<-data.frame(PA=dat_heron$PA, shd=heron_pred$shd, pred=p1)
+g1<-ggplot(data=d1, aes(y=PA, x=shd))
+g1+geom_jitter(height=0.1, size=0.5)+geom_line(aes(y=pred, x=shd), colour=2)
+
+#poly model better
 
 
 ##### BELOW IS OLD GAM STUFF!!! ### kept in here for reference
