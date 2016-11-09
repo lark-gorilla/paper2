@@ -29,7 +29,7 @@ panel.cor <- function(x, y, digits=2, prefix="", cex.cor)
 
 setwd("~/grive/phd/analyses/paper2")
 
-dat<-read.csv("spreads/paper2_extractionV3.csv", h=T, strip.white=T)
+dat<-read.csv("spreads/paper2_extractionV4.csv", h=T, strip.white=T)
 # V3 takes all PA points
 
 d1<-melt(dat, id.vars=c("Latitude", "Longitude", "dset", "dtyp"))
@@ -124,13 +124,14 @@ dat_heron$YRID<-factor(c(rep(2015, (nrow(dat_heron[dat_heron$dset==
                                                      "LTHeronPTT2013",])*(n+1)))))
 
 # z-transform (scale and center) to make variables comparable on same scale
+# not doing that now!
+#library(vegan)
+#dat_heron<-cbind(dat_heron[,c(1,2,24:25)],
+#                 decostand(dat_heron[,c(5:7, 9,10,12:23)], method="standardize"))
 
-library(vegan)
-dat_heron<-cbind(dat_heron[,c(1,2,24:25)],
-                 decostand(dat_heron[,c(5:7, 9,10,12:23)], method="standardize"))
 
-# remove some other problematic datapoints
-dat_heron<-dat_heron[-which(row.names(dat_heron)%in%c("72622", "72614", "72606")),]
+# remove some other problematic datapoints not now using interpolated tuna data
+#dat_heron<-dat_heron[-which(row.names(dat_heron)%in%c("72622", "72614", "72606")),]
 
 # now have a look at collinearity
 library(car)
@@ -174,12 +175,12 @@ g1+geom_jitter(height=0.1, size=0.5)+geom_smooth(method="glm", colour=2)+
 
 # we would do below for each variable individually to see the suitability of a poly
 
-m_lin<-glm(PA~bet_adu_03_ave,data=dat_heron, family="binomial")
-m_pol<-glm(PA~poly(bet_adu_03_ave, 2),data=dat_heron, family="binomial")
-d1<-data.frame(PA=dat_heron$PA, bet_adu_03_ave=dat_heron$bet_adu_03_ave, m_lin=fitted(m_lin), m_pol=fitted(m_pol))
-g1<-ggplot(data=d1, aes(y=PA, x=bet_adu_03_ave))
-g1+geom_jitter(height=0.1, size=0.5)+geom_line(aes(y=m_lin, x=bet_adu_03_ave), colour=2)+
-  geom_line(aes(y=m_pol, x=bet_adu_03_ave), colour=3)
+m_lin<-glm(PA~wnd,data=dat_heron, family="binomial")
+m_pol<-glm(PA~poly(wnd, 2),data=dat_heron, family="binomial")
+d1<-data.frame(PA=dat_heron$PA, wnd=dat_heron$wnd, m_lin=fitted(m_lin), m_pol=fitted(m_pol))
+g1<-ggplot(data=d1, aes(y=PA, x=wnd))
+g1+geom_jitter(height=0.1, size=0.5)+geom_line(aes(y=m_lin, x=wnd), colour=2)+
+  geom_line(aes(y=m_pol, x=wnd), colour=3)
 anova(m_lin, m_pol)
 #poly model better in the case of bet_adu it gives the 0 to 1 warning so only use linear
 
@@ -316,6 +317,46 @@ summary(m5_interp)
 library(devtools)
 install_github("clbustos/dominanceAnalysis")
 library(dominanceanalysis)
+# load in the below functions manually as dont seem to load in package 
+
+dominanceMatrix<-function(x,undefined.value=0.5) {
+  vars<-colnames(x)
+  m<-length(vars)
+  ma<-matrix(undefined.value,m,m,dimnames=list(vars,vars))
+  
+  for(i in 1:(m-1)) {
+    for(j in (i+1):m) {
+      comps<-na.omit(cbind(x[,i,drop=F],x[,j,drop=F]))
+      if(mean(comps[,1]>comps[,2])==1) 
+      {
+        ma[i,j]<-1
+        ma[j,i]<-0
+      }
+      
+      if(mean(comps[,1]<comps[,2])==1) 
+      {
+        ma[i,j]<-0
+        ma[j,i]<-1
+      }
+      
+    }
+  }
+  ma
+}
+
+daAverageContributionByLevel<-function(x) {
+  ff<-x$fit.functions
+  
+  out<-list()
+  for(i in ff) {
+    
+    res<-aggregate(x$fits[[i]],list(level=x$level),mean,na.rm=T)
+    
+    out[[i]]<-res[res$level<max(x$level),]
+    
+  }
+  out
+}
 
 daCompleteDominance<-function(daRR) {
   lapply(daRR$fits,dominanceMatrix)
@@ -349,7 +390,7 @@ dm2<-function (x, constants = c(), fit.functions = "default", data = NULL,
           null.model = NULL, ...) 
 {
   daModels <- daSubmodels(x, constants)
-  daRaw <- daRawResults(x, constants, fit.functions, data, 
+  daRaw4r2 <- daRawResults(x, constants, fit.functions, data, 
                         null.model, ...)
   daRaw<-daRaw4r2
   daRaw$fit.functions<-daRaw$fit.functions[c(1,4)]
@@ -475,10 +516,10 @@ dat_lhi$YRID<-factor(c(rep(2014, (nrow(dat_lhi[dat_lhi$dset==
                                                      "LTLHIGPS2016",])*(n+1)))))
 
 # z-transform (scale and center) to make variables comparable on same scale
-
-library(vegan)
-dat_lhi<-cbind(dat_lhi[,c(1,2,24:25)],
-                 decostand(dat_lhi[,c(5:7, 9,10,12:23)], method="standardize"))
+# nope
+#library(vegan)
+#dat_lhi<-cbind(dat_lhi[,c(1,2,24:25)],
+#                 decostand(dat_lhi[,c(5:7, 9,10,12:23)], method="standardize"))
 
 # now have a look at collinearity
 library(car)
@@ -518,20 +559,20 @@ g1+geom_jitter(height=0.1, size=0.5)+geom_smooth(method="glm", colour=2)+
 
 # we would do below for each variable individually to see the suitability of a poly
 
-m_lin<-glm(PA~shd,data=dat_lhi, family="binomial")
-m_pol<-glm(PA~poly(shd, 2),data=dat_lhi, family="binomial")
-d1<-data.frame(PA=dat_lhi$PA, shd=dat_lhi$shd, m_lin=fitted(m_lin), m_pol=fitted(m_pol))
-g1<-ggplot(data=d1, aes(y=PA, x=shd))
-g1+geom_jitter(height=0.1, size=0.5)+geom_line(aes(y=m_lin, x=shd), colour=2)+
-  geom_line(aes(y=m_pol, x=shd), colour=3)
+m_lin<-glm(PA~skj_juv_03_ave,data=dat_lhi, family="binomial")
+m_pol<-glm(PA~poly(skj_juv_03_ave, 2),data=dat_lhi, family="binomial")
+d1<-data.frame(PA=dat_lhi$PA, skj_juv_03_ave=dat_lhi$skj_juv_03_ave, m_lin=fitted(m_lin), m_pol=fitted(m_pol))
+g1<-ggplot(data=d1, aes(y=PA, x=skj_juv_03_ave))
+g1+geom_jitter(height=0.1, size=0.5)+geom_line(aes(y=m_lin, x=skj_juv_03_ave), colour=2)+
+  geom_line(aes(y=m_pol, x=skj_juv_03_ave), colour=3)
 anova(m_lin, m_pol)
 #poly model better
 
 # global model
 
-m1<-glm(PA~poly(shd,2)+ekm+poly(chl_log,2)+poly(wnd,2)+poly(tmc, 2)+
-          poly(smt_sqt,2)+poly(bty, 2)+poly(bet_adu_03_ave,2)+
-          yft_adu_03_ave+poly(skj_juv_03_ave,2)+YRID,
+m1<-glm(PA~poly(shd,2)+ekm+poly(chl_log,2)+poly(wnd,2)+tmc+
+          poly(smt_sqt,2)+poly(bty, 2)+bet_adu_03_ave+
+          poly(yft_adu_03_ave,2)+poly(skj_juv_03_ave,2)+YRID,
         data=dat_lhi, family="binomial")
 summary(m1)
 print(sum((resid(m1, type="pearson")^2))/df.residual(m1))
@@ -541,6 +582,112 @@ print(roc.area(dat_lhi$PA, fitted(m1))$A)
 ## spatial autocorrelation testing ##
 library(pgirmess)
 pgir1<-correlog(coords=dat_lhi[,1:2], z=fitted(m1), method="Moran")
+
+# we notied that in m1 polys of shd, tmc, wnd and skj and bet threw
+# the 0 or 1 error. bet and tmc didnt need a poly, skj is problematic but I think
+# it needs the poly. shd and wnd could use polys but wont work so meh
+m2<-glm(PA~shd+ekm+poly(chl_log,2)+wnd+tmc+
+          poly(smt_sqt,2)+poly(bty, 2)+bet_adu_03_ave+
+          yft_adu_03_ave+poly(skj_juv_03_ave,2)+YRID,
+        data=dat_lhi, family="binomial")
+
+anova(m1,m2) # ok non poly model worse but not by anything much
+
+pairs(dat_lhi[,c(6:11,15,17, 20, 21) ], upper.panel = panel.smooth,lower.panel=panel.cor)
+# looking at it in full, i could be tempted to remove shd and yellowfin or BET adult 
+
+# looking at variable importance/contribution
+
+library(car)
+Anova(m2) # Anova from car tests terms according to marginality
+# i.e. after all other terms have been included
+# not much support from wnd or YRID.. but beware the error
+m3<-glm(PA~shd+ekm+poly(chl_log,2)+tmc+
+          poly(smt_sqt,2)+poly(bty, 2)+bet_adu_03_ave+
+          yft_adu_03_ave+poly(skj_juv_03_ave,2),
+        data=dat_lhi, family="binomial")
+
+anova(m1, m2,m3); AIC(m1, m2, m3)
+
+Anova(m2) # all appear significant
+
+# See if step methods give same result from the m1 model
+
+for.aic <- step(glm(PA~1,data=dat_lhi, family="binomial"),
+                direction = "forward", scope = formula(m2), k = 2, trace = 1) # forward AIC
+for.bic <- step(glm(PA~1,data=dat_lhi, family="binomial"),
+                direction = "forward", scope = formula(m2), k = log(nrow(dat_lhi)), trace = 0) # forward BIC
+back.aic <- step(m2, direction = "backward", k = 2, trace = 0) # backward AIC
+back.bic <- step(m2, direction = "backward", k = log(nrow(dat_lhi)), trace = 0) # backward BIC
+
+formula(for.aic);formula(for.bic);formula(back.aic);formula(back.bic);
+formula(m3)
+# so basically m3 and bic methods are the same, aic says leave YRID and wnd
+pR2(m2)
+pR2(m3)
+pR2(for.aic)
+pR2(for.bic) # no diff really in r2
+
+anova(m2, m3, for.aic, for.bic)
+library(survey)
+regTermTest(m2, "wnd") # could well lose him
+regTermTest(m2, "YRID") # could well lose him
+
+# m3 it is!
+
+# looking at variable importance/contribution
+library(caret)
+varImp(m3) 
+summary(m3)
+# all looks good could probably lose that chl poly too
+
+m4<-glm(PA~shd+ekm+chl_log+tmc+
+          poly(smt_sqt,2)+poly(bty, 2)+bet_adu_03_ave+
+          yft_adu_03_ave+poly(skj_juv_03_ave,2),
+        data=dat_lhi, family="binomial")
+
+anova(m3, m4); AIC(m3, m4);pR2(m3);pR2(m4) # yeh I'll lose him
+
+# ok I think we're there
+print(sum((resid(m1, type="pearson")^2))/df.residual(m1))
+print(sum((resid(m4, type="pearson")^2))/df.residual(m4))
+library(verification)
+print(roc.area(dat_lhi$PA, fitted(m1))$A)
+print(roc.area(dat_lhi$PA, fitted(m4))$A)
+
+summary(m4)
+
+m4_interp<-glm(PA~shd+ekm+chl_log+tmc+
+                 poly(smt_sqt,2, raw=T)+poly(bty, 2, raw=T)+bet_adu_03_ave+
+                 yft_adu_03_ave+poly(skj_juv_03_ave,2, raw=T),
+               data=dat_lhi, family="binomial")
+
+summary(m4_interp)
+
+# using my hacked 'dm2' dominanceAnalysis function from heron analyses above
+library(dominanceanalysis)
+dm<-dm2(m4) # works!
+#I'll be using McFaddens' r2
+dm$contribution.average$r2.m
+
+#make sure it lines up
+sum(dm$contribution.average$r2.m)
+pR2(m4) # yep :)
+
+# I think the skj poly in dm2 gives the familiar glm.fit 1-0 warnings, 
+# just to confirm to myself here is same model withou poly
+m5<-glm(PA~shd+ekm+chl_log+tmc+
+          poly(smt_sqt,2)+poly(bty, 2)+bet_adu_03_ave+
+          yft_adu_03_ave+skj_juv_03_ave,
+        data=dat_lhi, family="binomial")
+
+pR2(m4);pR2(m5) #yeh ok its worse we know
+dm5<-dm2(m5) # still get 1 message! but not like 50 ;)
+
+dm5$contribution.average$r2.m
+dm$contribution.average$r2.m
+
+
 
 # Information Theoretic approach
 
