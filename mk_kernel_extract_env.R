@@ -161,19 +161,30 @@ tmc<-raster("~/grive/phd/sourced_data/env_data/climatologies/thermocline_3.tif")
 smt<-raster("/home/mark/grive/phd/sourced_data/env_data/seamounts/d_seamounts_wgs.tif")
 bty<-raster("~/grive/phd/sourced_data/env_data/phd_bathy/GRIDONE_2D_100.0_-45.0_180.0_40.0.nc")
 
+tmc<-resample(tmc, shd, method='bilinear') # resmaple tmc to shd resolution .25
+
 env_vars<-c(sst, shd, ekm, chl, wnd, tmc, smt, bty)
 
 #read in seapodym data
 
-bet_adu<-raster("/home/mark/grive/phd/sourced_data/SEAPODYM/month_ave_intermin_1deg_ref2015/bet_adu_03_ave.tif")
-bet_juv<-raster("/home/mark/grive/phd/sourced_data/SEAPODYM/month_ave_intermin_1deg_ref2015/bet_juv_03_ave.tif")
-bet_tot<-raster("/home/mark/grive/phd/sourced_data/SEAPODYM/month_ave_intermin_1deg_ref2015/bet_tot_03_ave.tif")
-skj_adu<-raster("/home/mark/grive/phd/sourced_data/SEAPODYM/month_ave_intermin_1deg_ref2015/skj_adu_03_ave.tif")
-skj_juv<-raster("/home/mark/grive/phd/sourced_data/SEAPODYM/month_ave_intermin_1deg_ref2015/skj_juv_03_ave.tif")
-skj_tot<-raster("/home/mark/grive/phd/sourced_data/SEAPODYM/month_ave_intermin_1deg_ref2015/skj_tot_03_ave.tif")
-yft_adu<-raster("/home/mark/grive/phd/sourced_data/SEAPODYM/month_ave_intermin_1deg_ref2015/yft_adu_03_ave.tif")
-yft_juv<-raster("/home/mark/grive/phd/sourced_data/SEAPODYM/month_ave_intermin_1deg_ref2015/yft_juv_03_ave.tif")
-yft_tot<-raster("/home/mark/grive/phd/sourced_data/SEAPODYM/month_ave_intermin_1deg_ref2015/yft_tot_03_ave.tif")
+bet_adu<-resample(raster("/home/mark/grive/phd/sourced_data/SEAPODYM/month_ave_intermin_1deg_ref2015/bet_adu_03_ave.tif"),
+                  shd, method='bilinear') # resmaple tmc to shd resolution .25
+bet_juv<-resample(raster("/home/mark/grive/phd/sourced_data/SEAPODYM/month_ave_intermin_1deg_ref2015/bet_juv_03_ave.tif"),
+                  shd, method='bilinear')
+bet_tot<-resample(raster("/home/mark/grive/phd/sourced_data/SEAPODYM/month_ave_intermin_1deg_ref2015/bet_tot_03_ave.tif"),
+                  shd, method='bilinear')
+skj_adu<-resample(raster("/home/mark/grive/phd/sourced_data/SEAPODYM/month_ave_intermin_1deg_ref2015/skj_adu_03_ave.tif"),
+                  shd, method='bilinear')
+skj_juv<-resample(raster("/home/mark/grive/phd/sourced_data/SEAPODYM/month_ave_intermin_1deg_ref2015/skj_juv_03_ave.tif"),
+                  shd, method='bilinear')
+skj_tot<-resample(raster("/home/mark/grive/phd/sourced_data/SEAPODYM/month_ave_intermin_1deg_ref2015/skj_tot_03_ave.tif"),
+                  shd, method='bilinear')
+yft_adu<-resample(raster("/home/mark/grive/phd/sourced_data/SEAPODYM/month_ave_intermin_1deg_ref2015/yft_adu_03_ave.tif"),
+                  shd, method='bilinear')
+yft_juv<-resample(raster("/home/mark/grive/phd/sourced_data/SEAPODYM/month_ave_intermin_1deg_ref2015/yft_juv_03_ave.tif"),
+                  shd, method='bilinear')
+yft_tot<-resample(raster("/home/mark/grive/phd/sourced_data/SEAPODYM/month_ave_intermin_1deg_ref2015/yft_tot_03_ave.tif"),
+                  shd, method='bilinear')
 
 tun_stack<-stack(bet_adu, bet_juv, bet_tot, skj_adu, skj_juv, skj_tot, yft_adu, yft_juv, yft_tot)
 
@@ -219,7 +230,7 @@ for( i in kernels)
   ext_all<-rbind(ext_all, ext_v)  
 }   
 
-write.csv(ext_all, "spreads/paper2_extractionV3.csv", quote=F, row.names=F)
+write.csv(ext_all, "spreads/paper2_extractionV4.csv", quote=F, row.names=F)
 #writing out data, note as ive randomly sampled the psuedo abs data, it might be
 # a good idea to iterate modelling with additional random samples of more or less
 # to see when results stabalise... ie we have sampled the area comprehensivly
