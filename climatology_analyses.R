@@ -175,13 +175,14 @@ g1+geom_jitter(height=0.1, size=0.5)+geom_smooth(method="glm", colour=2)+
 
 # we would do below for each variable individually to see the suitability of a poly
 
-m_lin<-glm(PA~wnd,data=dat_heron, family="binomial")
-m_pol<-glm(PA~poly(wnd, 2),data=dat_heron, family="binomial")
-d1<-data.frame(PA=dat_heron$PA, wnd=dat_heron$wnd, m_lin=fitted(m_lin), m_pol=fitted(m_pol))
-g1<-ggplot(data=d1, aes(y=PA, x=wnd))
-g1+geom_jitter(height=0.1, size=0.5)+geom_line(aes(y=m_lin, x=wnd), colour=2)+
-  geom_line(aes(y=m_pol, x=wnd), colour=3)
-anova(m_lin, m_pol)
+m_lin<-glm(PA~yft_adu_03_ave,data=dat_heron, family="binomial")
+m_pol<-glm(PA~poly(yft_adu_03_ave, 2),data=dat_heron, family="binomial")
+m_gam<-gam(PA~s(yft_adu_03_ave, bs="cr", k=3),data=dat_heron, family="binomial")
+d1<-data.frame(PA=dat_heron$PA, yft_adu_03_ave=dat_heron$yft_adu_03_ave, m_lin=fitted(m_lin), m_pol=fitted(m_pol), m_gam=fitted(m_gam))
+g1<-ggplot(data=d1, aes(y=PA, x=yft_adu_03_ave))
+g1+geom_jitter(height=0.1, size=0.5)+geom_line(aes(y=m_lin, x=yft_adu_03_ave), colour=2)+
+  geom_line(aes(y=m_pol, x=yft_adu_03_ave), colour=3)+geom_line(aes(y=m_gam, x=yft_adu_03_ave), colour=4)
+anova(m_lin, m_pol, m_gam)
 #poly model better in the case of bet_adu it gives the 0 to 1 warning so only use linear
 
 # It was important to work out what was causing the warning: glm.fit: fitted probabilities numerically 0 or 1 occurred
@@ -204,6 +205,41 @@ pR2(m1)
 library(pgirmess)
 pgir1<-correlog(coords=dat_heron[,1:2], z=fitted(m1), method="Moran")
 
+library(sp)
+dh_ndub<-NULL
+for(j in unique(dat_heron$YRID))
+{ d1<-dat_heron[dat_heron$YRID==j,]
+pts <- SpatialPoints(d1[,1:2])
+pts <- SpatialPointsDataFrame(pts, data=d1)
+dh_ndub<-rbind(dh_ndub, remove.duplicates(pts)@data)
+print(j)}
+
+nrow(dat_heron); nrow(dh_ndub)
+## All points
+
+# ok we know there is some multicollinearity in this model but it 
+# gets worse as we select the model
+library(gee)
+
+gee1<-gee(PA~poly(shd,2)+ekm+chl_log+wnd+poly(tmc, 2)+smt_sqt+poly(bty, 2)+
+            bet_adu_03_ave+bet_juv_03_ave+poly(yft_adu_03_ave,2)+
+            poly(skj_juv_03_ave,2), id=YRID,
+          data=dat_heron, family="binomial", corstr="independence")
+## the above dies!
+library(MASS)
+library(nlme)
+
+dh_ndub2<-dh_ndub[sample(1:nrow(dh_ndub), 1000),]
+
+attach(dh_ndub2)
+pql1<-glmmPQL(PA~poly(shd,2)+ekm+chl_log+wnd+poly(tmc, 2)+smt_sqt+poly(bty, 2)+
+            bet_adu_03_ave+bet_juv_03_ave+poly(yft_adu_03_ave,2)+
+            poly(skj_juv_03_ave,2), random=~1|YRID,
+            data=dh_ndub2, family="binomial",
+            correlation=corExp(form=~Longitude+Latitude))
+
+detach(dh_ndub2)
+
 # looking at variable importance/contribution
 summary(m1) # look to drop ekm and yrid and probs yft
 anova(m1) # anova tests terms sequentially
@@ -215,10 +251,43 @@ library(car)
 Anova(m1) # Anova from car tests terms according to marginality
 # i.e. after all other terms have been included
 # not much support from ekm, YRID or yft
+
+#### DAnGER !!!
+
+dat_heron<-dat_heron[sample(1:nrow(dat_heron), 1000),]
+
 m2<-glm(PA~poly(shd,2)+chl_log+wnd+poly(tmc, 2)+smt_sqt+poly(bty, 2)+
           bet_adu_03_ave+bet_juv_03_ave+
           poly(skj_juv_03_ave,2),
         data=dat_heron, family="binomial")
+
+# ok lets try gam and autocoavariate term models to incorp SPAC
+library(ncf)
+library(spdep)
+
+RAC<-autocov_dist(resid(m2, type="pearson"), cbind(dat_heron[,1], dat_heron[,2]),
+              nbs = 100, type = "inverse", zero.policy = T,
+             style = "B", longlat=TRUE)
+
+dat_heron<-cbind(dat_heron, RAC)
+
+m3<-glm(PA~poly(shd,2)+chl_log+wnd+poly(tmc, 2)+smt_sqt+poly(bty, 2)+
+          bet_adu_03_ave+bet_juv_03_ave+
+          poly(skj_juv_03_ave,2)+RAC,
+        data=dat_heron, family="binomial") # throws 0 or 1 error
+
+
+# so try gam
+m3<-gam(PA~poly(shd,2)+chl_log+wnd+poly(tmc, 2)+smt_sqt+poly(bty, 2)+
+          bet_adu_03_ave+bet_juv_03_ave+
+          poly(skj_juv_03_ave,2)+s(Longitude, Latitude),
+        data=dat_heron, family="binomial") # throws 0 or 1 error
+
+glm2corr<-spline.correlog(x=dat_heron$Longitude, y=dat_heron$Latitude, z=resid(m2, type="pearson"), latlon=T, resamp=1)
+
+gam3corr<-spline.correlog(x=dat_heron$Longitude, y=dat_heron$Latitude, z=resid(m3, type="pearson"), latlon=T, resamp=1)
+
+
 
 anova(m1, m2); AIC(m1, m2)
 
