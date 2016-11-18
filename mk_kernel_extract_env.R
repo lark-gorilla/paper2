@@ -195,28 +195,55 @@ kernels<-kernels[-c(9,10)]
 #Construct standardised sampling grid so even and fair of sampling of different resolution datasets
 # set resolution at 0.25 degree, good comprimise between 0.01 bathy and 1 deg tuna or, 2 deg thermo.. hmm not sure about that one
 
-ext_all<-NULL
-for( i in kernels)
+for( i in kernels[grep("LTLHI", kernels)])
   {
   sp1<-readOGR(dsn=paste("/home/mark/grive/phd/analyses/paper2/spatial/",
               i, sep=""), layer=substr(i, 1, (nchar(i)-4)))
   
-  if(length(grep("LT", i))==1) # grep throws a integer(0), use length() to capture in if statement
-    {
-    r1<-rasterize(sp1[3,], chl) #makes raster of 50% UD at 0.1 deg resolution
-    p1<-rasterToPoints(r1)
-    dtp="ud50_pres"
-    }else{
-    #r1<-rasterize(spsample(sp1, n=6000, type="random"), chl) # using rougly 3:1 background sample.. still zero inf?
-    r1<-rasterize(sp1, chl) # here we extract all points and will do sample() testing as part of the modelling
-    p1<-rasterToPoints(r1)
-    dtp="psuedo_abs"
-    }
-        
+  r1<-rasterize(sp1[3,], chl, field=1, background=0) 
+  if(which(kernels[grep("LT", kernels)]==i)==1){
+    rsum=r1}else{rsum=rsum+r1}
+  }
+p1<-rasterToPoints(rsum, fun=function(x){x>0})
+
+lhiP<-data.frame(Longitude=p1[,1], Latitude=p1[,2], Count=p1[,3], dset="LHI", 
+                  sst=1, shd=1, ekm=1, chl=1, wnd=1, tmc=1, smt=1, bty=1)
+
+for( i in kernels[grep("LTHeron", kernels)])
+{
+  sp1<-readOGR(dsn=paste("/home/mark/grive/phd/analyses/paper2/spatial/",
+                         i, sep=""), layer=substr(i, 1, (nchar(i)-4)))
+  
+  r1<-rasterize(sp1[3,], chl, field=1, background=0) 
+  if(which(kernels[grep("LT", kernels)]==i)==1){
+    rsum=r1}else{rsum=rsum+r1}
+}
+p1<-rasterToPoints(rsum, fun=function(x){x>0})
+
+herP<-data.frame(Longitude=p1[,1], Latitude=p1[,2], Count=p1[,3], dset="Heron", 
+                 sst=1, shd=1, ekm=1, chl=1, wnd=1, tmc=1, smt=1, bty=1)
+
+sp1<-readOGR(dsn="/home/mark/grive/phd/analyses/paper2/spatial/lhiBuff.shp",
+                   layer="lhiBuff")
+
+r1<-rasterize(sp1, chl) # here we extract all points and will do sample() testing as part of the modelling
+p1<-rasterToPoints(r1)
+
+lhiA<-data.frame(Longitude=p1[,1], Latitude=p1[,2], Count=0, dset="LHI", 
+                 sst=1, shd=1, ekm=1, chl=1, wnd=1, tmc=1, smt=1, bty=1)
+
+sp1<-readOGR(dsn="/home/mark/grive/phd/analyses/paper2/spatial/heronBuff.shp",
+             layer="heronBuff")
+
+r1<-rasterize(sp1, chl) # here we extract all points and will do sample() testing as part of the modelling
+p1<-rasterToPoints(r1)
+
+herA<-data.frame(Longitude=p1[,1], Latitude=p1[,2], Count=0, dset="Heron", 
+                 sst=1, shd=1, ekm=1, chl=1, wnd=1, tmc=1, smt=1, bty=1)
+
+ ext_v<-rbind(lhiP, lhiA, herP, herA)       
     #plot(sp1[3,])
     #plot(SpatialPoints(p1), add=T, col=2)
-  ext_v<-data.frame(Longitude=p1[,1], Latitude=p1[,2], dtyp=dtp, dset=substr(i, 1, (nchar(i)-4)), 
-                      sst=1, shd=1, ekm=1, chl=1, wnd=1, tmc=1, smt=1, bty=1)
   counter=0
   for(j in env_vars )
       {
@@ -227,17 +254,62 @@ for( i in kernels)
      
   e2<-extract(tun_stack, ext_v[,1:2]) # no point using the buffer here as pixels at 1 degree
   ext_v<-cbind(ext_v, e2)
-  ext_all<-rbind(ext_all, ext_v)  
-}   
+ 
 
-write.csv(ext_all, "spreads/paper2_extractionV4.csv", quote=F, row.names=F)
+write.csv(ext_v, "spreads/paper2_extractionV5.csv", quote=F, row.names=F)
 #writing out data, note as ive randomly sampled the psuedo abs data, it might be
 # a good idea to iterate modelling with additional random samples of more or less
 # to see when results stabalise... ie we have sampled the area comprehensivly
 
 
+## attempt at repeatability of kernels
+
+k1<-readOGR(dsn="/home/mark/grive/phd/analyses/paper2/spatial/LTLHIGPS2014.shp",
+            layer="LTLHIGPS2014")
+
+k2<-readOGR(dsn="/home/mark/grive/phd/analyses/paper2/spatial/LTLHIGPS2015.shp",
+            layer="LTLHIGPS2015")
+
+k3<-readOGR(dsn="/home/mark/grive/phd/analyses/paper2/spatial/LTLHIGPS2016.shp",
+            layer="LTLHIGPS2016")
+
+k1<-k1[3,]
+k1@polygons[[1]]@ID<-"2015" ; row.names(k1@data)<-"2015"
+k2<-k2[3,]
+k2@polygons[[1]]@ID<-"2013" ; row.names(k2@data)<-"2013"
+k3<-k3[3,]
+k3@polygons[[1]]@ID<-"2011" ; row.names(k3@data)<-"2011"
 
 
+
+all_UDs<-spRbind(k1, k2)
+all_UDs<-spRbind(all_UDs, k3)
+all_UDs$id<-c("2015", "2013", "2011")
+plot(all_UDs, border=factor(all_UDs$id))
+
+
+heron_pols<-disaggregate(all_UDs)
+
+DgProj <- CRS("+proj=laea +lon_0=155 +lat_0=-22")
+
+heron_pols <- spTransform(heron_pols, CRS=DgProj)
+
+gDistance(heron_pols, k2, hausdorff=TRUE)
+
+
+source("~/grive/phd/scripts/MIBA_scripts_revised/varianceTest_revised.r")
+bird_string<-as.character(heron_pols$id)
+
+bird_string<-as.character(seq(1:length(heron_pols)))
+
+vt<-varianceTest(heron_pols, bird_string, Iteration=10)
+vt
+#hmm need to figue out this one
+
+heron_pols
+
+
+#Or some form of repeatabililty or general statisitcal test to see difference between years
 
 
 
