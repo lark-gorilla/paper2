@@ -201,7 +201,7 @@ for( i in kernels[grep("LTLHI", kernels)])
               i, sep=""), layer=substr(i, 1, (nchar(i)-4)))
   
   r1<-rasterize(sp1[3,], chl, field=1, background=0) 
-  if(which(kernels[grep("LT", kernels)]==i)==1){
+  if(which(kernels[grep("LTLHI", kernels)]==i)==1){
     rsum=r1}else{rsum=rsum+r1}
   }
 p1<-rasterToPoints(rsum, fun=function(x){x>0})
@@ -215,7 +215,7 @@ for( i in kernels[grep("LTHeron", kernels)])
                          i, sep=""), layer=substr(i, 1, (nchar(i)-4)))
   
   r1<-rasterize(sp1[3,], chl, field=1, background=0) 
-  if(which(kernels[grep("LT", kernels)]==i)==1){
+  if(which(kernels[grep("LTHeron", kernels)]==i)==1){
     rsum=r1}else{rsum=rsum+r1}
 }
 p1<-rasterToPoints(rsum, fun=function(x){x>0})
