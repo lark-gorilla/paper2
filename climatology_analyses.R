@@ -104,7 +104,7 @@ dat[dat$dtyp=="ud50_pres",]$PA<-1 # making presence absence variable
 
 heronPA<-dat[dat$dset=="heronBuff",]
 
-n=10 
+n=3 
 
 dat_heron<-rbind(dat[dat$dset=="LTHeronGPS2015",], 
                  heronPA[sample(1:nrow(heronPA), 
@@ -203,42 +203,102 @@ pR2(m1)
 
 ## spatial autocorrelation testing ##
 library(pgirmess)
-pgir1<-correlog(coords=dat_heron[,1:2], z=fitted(m1), method="Moran")
+pgir1<-correlog(coords=dat_heron[,1:2], z=resid(m1, type="pearson"), method="Moran")
+library(ncf)
+he1<-spline.correlog(x=dat_heron$Longitude, y=dat_heron$Latitude, z=resid(m1, type="pearson"), latlon=T, resamp=1)
 
-library(sp)
-dh_ndub<-NULL
-for(j in unique(dat_heron$YRID))
-{ d1<-dat_heron[dat_heron$YRID==j,]
-pts <- SpatialPoints(d1[,1:2])
-pts <- SpatialPointsDataFrame(pts, data=d1)
-dh_ndub<-rbind(dh_ndub, remove.duplicates(pts)@data)
-print(j)}
 
-nrow(dat_heron); nrow(dh_ndub)
-## All points
 
-# ok we know there is some multicollinearity in this model but it 
+# ok we know there is some pretty serious multicollinearity in this model but it 
 # gets worse as we select the model
-library(gee)
-
+#library(gee)
 gee1<-gee(PA~poly(shd,2)+ekm+chl_log+wnd+poly(tmc, 2)+smt_sqt+poly(bty, 2)+
             bet_adu_03_ave+bet_juv_03_ave+poly(yft_adu_03_ave,2)+
-            poly(skj_juv_03_ave,2), id=YRID,
+            poly(skj_juv_03_ave,2)+YRID, id=rep(1, nrow(dat_heron)),
           data=dat_heron, family="binomial", corstr="independence")
 ## the above dies!
-library(MASS)
-library(nlme)
+#library(MASS)
+#library(nlme)
 
-dh_ndub2<-dh_ndub[sample(1:nrow(dh_ndub), 1000),]
+#dh_ndub2<-dh_ndub[sample(1:nrow(dh_ndub), 1000),]
+#attach(dh_ndub2)
+#pql1<-glmmPQL(PA~poly(shd,2)+ekm+chl_log+wnd+poly(tmc, 2)+smt_sqt+poly(bty, 2)+
+#            bet_adu_03_ave+bet_juv_03_ave+poly(yft_adu_03_ave,2)+
+#            poly(skj_juv_03_ave,2), random=~1|YRID,
+#            data=dh_ndub2, family="binomial",
+#            correlation=corExp(form=~Longitude+Latitude))
+#detach(dh_ndub2)
+# this doesnt seem to improve the SPAC
 
-attach(dh_ndub2)
-pql1<-glmmPQL(PA~poly(shd,2)+ekm+chl_log+wnd+poly(tmc, 2)+smt_sqt+poly(bty, 2)+
-            bet_adu_03_ave+bet_juv_03_ave+poly(yft_adu_03_ave,2)+
-            poly(skj_juv_03_ave,2), random=~1|YRID,
-            data=dh_ndub2, family="binomial",
-            correlation=corExp(form=~Longitude+Latitude))
+# ok lets try gam and autocoavariate term models to incorp SPAC
+#library(ncf)
+#library(spdep)
+#RAC<-autocov_dist(resid(m2, type="pearson"), cbind(dat_heron[,1], dat_heron[,2]),
+#                  nbs = 100, type = "inverse", zero.policy = T,
+#                  style = "B", longlat=TRUE)
 
-detach(dh_ndub2)
+#dat_heron<-cbind(dat_heron, RAC)
+
+#m3<-glm(PA~poly(shd,2)+chl_log+wnd+poly(tmc, 2)+smt_sqt+poly(bty, 2)+
+#          bet_adu_03_ave+bet_juv_03_ave+
+#          poly(skj_juv_03_ave,2)+RAC,
+#        data=dat_heron, family="binomial") 
+# throws 0 or 1 error!
+
+library(mgcv)
+# so try gam
+mg3.1<-gam(PA~poly(shd,2)+ekm+chl_log+wnd+poly(tmc, 2)+smt_sqt+poly(bty, 2)+
+          bet_adu_03_ave+poly(yft_adu_03_ave,2)+
+          poly(skj_juv_03_ave,2)+s(Latitude, Longitude) +YRID,
+        data=dat_heron, family="binomial") # ok
+
+# should probably use smooths instead of polys
+
+mg3<-gam(PA~s(shd, bs='cr', k=3)+ekm+chl_log+wnd+s(tmc, bs='cr', k=3)+smt_sqt+
+           s(bty, bs='cr', k=3)+ bet_adu_03_ave+s(yft_adu_03_ave,bs='cr', k=3)+
+           s(skj_juv_03_ave,bs='cr', k=3)+s(Latitude, Longitude)+YRID,
+         data=dat_heron, family='binomial') 
+
+globmod=mg3
+
+termz<-c("s(shd, bs='cr', k=3)", "ekm","chl_log","wnd", "s(tmc, bs='cr', k=3)",
+"smt_sqt","s(bty, bs='cr', k=3)", "bet_adu_03_ave", "s(yft_adu_03_ave,bs='cr', k=3)",
+"s(skj_juv_03_ave,bs='cr', k=3)", "YRID")
+
+for(i in 1:length(termz)){
+
+out<-NULL
+for(g in termz)
+{
+  if(g=="s(shd, bs='cr', k=3)"){out<-rbind(out,data.frame(ID=c("full", g), anova(globmod, update(globmod, ~. -s(shd, bs='cr', k=3)))))}
+  if(g=="ekm"){out<-rbind(out,data.frame(ID=c("full", g), anova(globmod, update(globmod, ~. -ekm))))}
+  if(g=="chl_log"){out<-rbind(out,data.frame(ID=c("full", g), anova(globmod, update(globmod, ~. -chl_log))))}
+  if(g=="wnd"){out<-rbind(out,data.frame(ID=c("full", g), anova(globmod, update(globmod, ~. -wnd))))}
+  if(g=="smt_sqt"){out<-rbind(out,data.frame(ID=c("full", g), anova(globmod, update(globmod, ~. -smt_sqt))))}
+  if(g=="bet_adu_03_ave"){out<-rbind(out,data.frame(ID=c("full", g), anova(globmod, update(globmod, ~. -bet_adu_03_ave))))}
+  if(g=="s(yft_adu_03_ave,bs='cr', k=3)"){out<-rbind(out,data.frame(ID=c("full", g), anova(globmod, update(globmod, ~. -s(yft_adu_03_ave,bs='cr', k=3)))))}
+  if(g=="s(skj_juv_03_ave,bs='cr', k=3)"){out<-rbind(out,data.frame(ID=c("full", g), anova(globmod, update(globmod, ~. -s(skj_juv_03_ave,bs='cr', k=3)))))}
+  if(g=="YRID"){out<-rbind(out,data.frame(ID=c("full", g), anova(globmod, update(globmod, ~. -YRID))))}
+}
+print(out)
+
+if(max(out$Deviance[out$Deviance!=0], na.rm=T)< -50){break}
+
+outvarib<-out[which(max(out$Deviance[out$Deviance!=0], na.rm=T)==out$Deviance),]$ID
+
+  if(outvarib=="s(shd, bs='cr', k=3)"){ globmod<-update(globmod, ~. -s(shd, bs='cr', k=3))}
+  if(outvarib=="ekm"){globmod<- update(globmod, ~. -ekm)}
+  if(outvarib=="chl_log"){globmod<- update(globmod, ~. -chl_log)}
+  if(outvarib=="wnd"){out<-globmod<-update(globmod, ~. -wnd)}
+  if(outvarib=="smt_sqt"){globmod<- update(globmod, ~. -smt_sqt)}
+  if(outvarib=="bet_adu_03_ave"){globmod<- update(globmod, ~. -bet_adu_03_ave)}
+  if(outvarib=="s(yft_adu_03_ave,bs='cr', k=3)"){globmod<- update(globmod, ~. -s(yft_adu_03_ave,bs='cr', k=3))}
+  if(outvarib=="s(skj_juv_03_ave,bs='cr', k=3)"){globmod<- update(globmod, ~. -s(skj_juv_03_ave,bs='cr', k=3))}
+  if(outvarib=="YRID"){globmod<-update(globmod, ~. -YRID)}
+
+print(outvarib)
+}
+  
 
 # looking at variable importance/contribution
 summary(m1) # look to drop ekm and yrid and probs yft
@@ -251,41 +311,6 @@ library(car)
 Anova(m1) # Anova from car tests terms according to marginality
 # i.e. after all other terms have been included
 # not much support from ekm, YRID or yft
-
-#### DAnGER !!!
-
-dat_heron<-dat_heron[sample(1:nrow(dat_heron), 1000),]
-
-m2<-glm(PA~poly(shd,2)+chl_log+wnd+poly(tmc, 2)+smt_sqt+poly(bty, 2)+
-          bet_adu_03_ave+bet_juv_03_ave+
-          poly(skj_juv_03_ave,2),
-        data=dat_heron, family="binomial")
-
-# ok lets try gam and autocoavariate term models to incorp SPAC
-library(ncf)
-library(spdep)
-
-RAC<-autocov_dist(resid(m2, type="pearson"), cbind(dat_heron[,1], dat_heron[,2]),
-              nbs = 100, type = "inverse", zero.policy = T,
-             style = "B", longlat=TRUE)
-
-dat_heron<-cbind(dat_heron, RAC)
-
-m3<-glm(PA~poly(shd,2)+chl_log+wnd+poly(tmc, 2)+smt_sqt+poly(bty, 2)+
-          bet_adu_03_ave+bet_juv_03_ave+
-          poly(skj_juv_03_ave,2)+RAC,
-        data=dat_heron, family="binomial") # throws 0 or 1 error
-
-
-# so try gam
-m3<-gam(PA~poly(shd,2)+chl_log+wnd+poly(tmc, 2)+smt_sqt+poly(bty, 2)+
-          bet_adu_03_ave+bet_juv_03_ave+
-          poly(skj_juv_03_ave,2)+s(Longitude, Latitude),
-        data=dat_heron, family="binomial") # throws 0 or 1 error
-
-glm2corr<-spline.correlog(x=dat_heron$Longitude, y=dat_heron$Latitude, z=resid(m2, type="pearson"), latlon=T, resamp=1)
-
-gam3corr<-spline.correlog(x=dat_heron$Longitude, y=dat_heron$Latitude, z=resid(m3, type="pearson"), latlon=T, resamp=1)
 
 
 
