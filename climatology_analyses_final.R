@@ -132,30 +132,6 @@ lhiA<-dat[dat$dset=="LHI" & dat$Count==0,]
 lhiPA<-lhiA[sample(1:nrow(lhiA), 3200),]
 dat_lhi<-rbind(lhiP, lhiPA)
 
-# ok attempt with ME
-library(spdep)
-
-sp1<-SpatialPointsDataFrame(dat_heron[,1:2], data=dat_heron, proj4string=CRS("+proj=longlat + datum=wgs84"))
-
-dat.nb4<-knearneigh(sp1@coords, k=3, longlat=T)
-dat.nb4<-knn2nb(dat.nb4)
-dat.nb4<-make.sym.nb(dat.nb4)
-dat.wt4<-nb2listw(dat.nb4, style="W")
-plot(sp1, col = "grey60")
-plot(w, coordinates(sp1), pch = 19, cex = 0.3, add = TRUE)
-
-#using distance
-
-nb <- dnearneigh(sp1@coords, 10,30, longlat=T) 
-w <- nb2listw(nb,style="B",zero.policy=T)
-plot(sp1, col = "grey60")
-plot(w, coordinates(sp1), pch = 19, cex = 0.3, add = TRUE)
-
-me.fit<-ME(PA~shd+ekm+chl_log+wnd+tmc+smt_sqt+bty+
-             bet_juv_03_ave+yft_adu_03_ave+
-             skj_juv_03_ave, data=dat_heron, 
-           family=binomial, listw = dat.wt4, verbose=T,alpha=0.05 )
-
 
 # finding distance to nearest point after na.omit, this will identify isolated points
 library(sp)
@@ -195,7 +171,7 @@ vif(lm(1:nrow(dat_heron)~shd+ekm+chl_log+wnd+tmc+smt_sqt+bty+bet_adu_03_ave+
        data=dat_heron))
 
 # ok looks good, all values < 10, hmm skjadu and yftadu are corr according to 
-cor(dat_heron[,-(1:4)])
+cor(dat_heron[,-(1:4)]) # NOTE: 0.7 seems far to 
 
 #pairs(dat_heron[,-(1:2)], upper.panel = panel.smooth,lower.panel=panel.cor)
 pairs(dat_heron[,5:23], upper.panel = panel.smooth,lower.panel=panel.cor)
@@ -205,18 +181,16 @@ pairs(dat_heron[,5:23], upper.panel = panel.smooth,lower.panel=panel.cor)
 pairs(dat_heron[,c(6,7,9,10,12,13,14,17, 19, 22, 23) ], upper.panel = panel.smooth,lower.panel=panel.cor)
 # looking at it in full, i would be tempted to remove shd, tmc and yellowfin adult
 
-# some serious collinearity need yo investigate using PCA
+# Some serious collinearity need to investigate using PCA
 library(vegan)
-
-#then z transform, this also removes not needed cols [1:4]
+#then z transform to standardize
 enviro_std<-decostand(dat_heron[,c(5,6,9,10,12,13,14,16,17,19,20,22,23)], method="standardize")
 # takes all varibs but eke also juv and adu tnua forms
 
 # then do pca (just a scaled RDA)
 enviro_rda<-rda(enviro_std, scale=T)
 summary(enviro_rda, display=NULL)
-screeplot(enviro_rda)
-
+screeplot(enviro_rda) # badly scaled
 #full summary
 summary(enviro_rda)
 
@@ -248,15 +222,7 @@ g
 # and deep thermocline at the other end (Tasman sea)
 
 
-m1<-glm(PA~shd+ekm+chl_log+wnd+tmc+smt_sqt+bty+bet_adu_03_ave+
-          bet_juv_03_ave+yft_adu_03_ave+skj_juv_03_ave,
-        data=dat_heron, family="binomial")
-summary(m1)
-print(sum((resid(m1, type="pearson")^2))/df.residual(m1))
-library(verification)
-print(roc.area(dat_heron$PA, fitted(m1))$A)
-
-# now we see which variables are better suited to a second deg polynomial
+# Now we see which variables are better suited to a second deg polynomial
 
 d1<-melt(dat_heron, id.vars=c("PA", "Count", "dset"))
 # Very raw view of how a poly might better suit data than linear
@@ -264,7 +230,7 @@ g1<-ggplot(data=d1, aes(y=PA, x=value))
 g1+geom_jitter(height=0.1, size=0.5)+geom_smooth(method="glm", colour=2)+
   geom_smooth(method="glm", formula=y~poly(x,2), colour=3)+facet_wrap(~variable, scale="free")
 
-# we would do below for each variable individually to see the suitability of a poly
+# We would do below for each variable individually to see the suitability of a poly
 
 m_lin<-glm(PA~bty,data=dat_heron, family="binomial")
 m_pol<-glm(PA~poly(bty, 2),data=dat_heron, family="binomial")
@@ -274,12 +240,14 @@ g1+geom_jitter(height=0.1, size=0.5)+geom_line(aes(y=m_lin, x=bty), colour=2)+
   geom_line(aes(y=m_pol, x=bty), colour=3)
 anova(m_lin, m_pol)
 #poly model better in the case of skj_juv it gives the 0 to 1 warning so only use linear
-
 # It was important to work out what was causing the warning: glm.fit: fitted probabilities numerically 0 or 1 occurred
 # it was the  skj_juv poly so its now removed and we can proceed!
 # not using ekm as its crap anyway
 
-### RAC
+# To account for spatial autocorrelation we calculate autocovariate terms
+# using the residuls of the fitted model and a neighbourhood distance to 
+# link spatially correlated variables, this term (RAC) is then included in
+# the final model to soak up the residual deviance 
 
 m2<-glm(PA~chl_log+wnd+
           smt_sqt+poly(bty,2)+
@@ -331,18 +299,16 @@ summary(m3)
 #write.csv(dat_heron, "dat_heron_3000PA_final.csv", row.names=F, quote=F)
 
 # looking at variable importance/contribution
-summary(m3) # look to drop chl 
+
 anova(m3) # anova tests terms sequentially
 library(survey)
 regTermTest(m3, "chl_log")
-anova(m3, update(m3, ~.- ekm)) # basically tells the same as anova but gives significance too
-
+anova(m3, update(m3, ~.- "chl_log")) # basically tells the same as anova but gives significance too
 library(car)
 Anova(m3) # Anova from car tests terms according to marginality
 # i.e. after all other terms have been included
-# get rid of chl
 
-# See if step methods give same result from the m1 model
+# See if step methods want to shave off or add variables to m3 
 
 for.aic <- step(glm(PA~1,data=dat_heron, family="binomial"),
                 direction = "forward", scope = formula(m3), k = 2, trace = 1) # forward AIC
@@ -353,7 +319,7 @@ back.bic <- step(m3, direction = "backward", k = log(nrow(dat_heron)), trace = 0
 #back steps give glm.fit warning (removing wind?)
 
 formula(for.aic);formula(for.bic);formula(back.aic);formula(back.bic);
-# aic methods say don't drop chl, hmmm
+# aic methods say don't drop chl, its being weird as its correlated with sst
 formula(m2)
 # so basically m2 and aic methods are the same
 pR2(m3)
@@ -375,7 +341,6 @@ summary(m4)
 # all looks good but is showing a negative trend rather than
 # a positive so is modelled wrong, this is probably due to collinearity
 # make sure it is not modelling correct
-
 
 # Check collinearity..need to see whats acceptable..could potentially remove 
 # shd, tmc etc but pretty ruthless
@@ -401,37 +366,6 @@ print(g1+geom_jitter(height=0.1, size=0.5)+
         geom_line(aes(y=pred, x=varib), colour=2))
 readline("hi@")
 }
-
-
-# yeh looks bad, see if removing it makes much difference
-m4<-update(m3, ~.- bet_juv_03_ave)
-anova(m3, m4)
-pR2(m3);pR2(m4) # doesnt add much at all
-
-summary(m4) # now the tmc poly looks insignificant
-
-m5<-glm(PA~chl_log+wnd+tmc+smt_sqt+poly(bty, 2)+
-          bet_adu_03_ave+
-          poly(skj_juv_03_ave,2),
-        data=dat_heron, family="binomial")
-
-anova(m4, m5)
-pR2(m4);pR2(m5) # yep get rid, go with m5
-
-# ok I think we're there
-print(sum((resid(m1, type="pearson")^2))/df.residual(m1))
-print(sum((resid(m5, type="pearson")^2))/df.residual(m5))
-library(verification)
-print(roc.area(dat_heron$PA, fitted(m1))$A)
-print(roc.area(dat_heron$PA, fitted(m5))$A)
-
-summary(m5)
-varImp(m5) # all looks good, could try removing tmc all together?
-
-m6<-update(m5, ~.- tmc)
-anova(m5, m6)
-pR2(m5);pR2(m6) # doesnt add much but
-regTermTest(m5, "tmc") # is still significant so keep
 
 library(hier.part) # see if we can kinda validate with hier.part
 hp<-hier.part(y=dat_heron$PA, x=dat_heron[,c(8:11,15, 20, 21) ], family="binomial")
@@ -465,4 +399,35 @@ pR2(m3) # yep :)
 dm2(update(m3,~.-  sst))$contribution.average$r2.m 
 dm2(update(m3,~.-  chl_log))$contribution.average$r2.m
 # yep pretty much.
+
+
+
+
+
+####### ~~~ Unused ~~~~ #######
+
+# ok attempt with ME
+library(spdep)
+
+sp1<-SpatialPointsDataFrame(dat_heron[,1:2], data=dat_heron, proj4string=CRS("+proj=longlat + datum=wgs84"))
+
+dat.nb4<-knearneigh(sp1@coords, k=3, longlat=T)
+dat.nb4<-knn2nb(dat.nb4)
+dat.nb4<-make.sym.nb(dat.nb4)
+dat.wt4<-nb2listw(dat.nb4, style="W")
+plot(sp1, col = "grey60")
+plot(w, coordinates(sp1), pch = 19, cex = 0.3, add = TRUE)
+
+#using distance
+
+nb <- dnearneigh(sp1@coords, 10,30, longlat=T) 
+w <- nb2listw(nb,style="B",zero.policy=T)
+plot(sp1, col = "grey60")
+plot(w, coordinates(sp1), pch = 19, cex = 0.3, add = TRUE)
+
+me.fit<-ME(PA~shd+ekm+chl_log+wnd+tmc+smt_sqt+bty+
+             bet_juv_03_ave+yft_adu_03_ave+
+             skj_juv_03_ave, data=dat_heron, 
+           family=binomial, listw = dat.wt4, verbose=T,alpha=0.05 )
+
 
