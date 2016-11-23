@@ -4,7 +4,21 @@
 
 rm(list=ls())
 library(ggplot2)
+library(ggrepel)
 library(reshape2)
+library(sp)
+library(rgeos)
+library(car)
+library(vegan)
+library(verification)
+library(spdep)
+library(ncf)
+library(pscl)
+library(survey)
+library(caret)
+#install_github("clbustos/dominanceAnalysis")
+library(dominanceanalysis)
+source("~/grive/phd/scripts/paper2/hackedDominance.R")
 
 # extra functions for pairs multicollinearity exploration
 panel.cor <- function(x, y, digits=2, prefix="", cex.cor) 
@@ -93,6 +107,8 @@ qplot(smt, data=dat);qplot(sqrt(smt), data=dat)
 # Transform variables AFTER naomit!!
 dat$chl_log<-log(dat$chl)
 dat$smt_sqt<-sqrt(dat$smt)
+# changes BET from g/m2 to kg/km2 (bigger units in model)
+dat$bet_adu_03_ave<-(dat$bet_adu_03_ave*1000000)/1000 
 
 # how we looking now
 d1<-melt(dat, id.vars=c("Latitude", "Longitude", "dset", "Count", "PA"))
@@ -134,8 +150,6 @@ dat_lhi<-rbind(lhiP, lhiPA)
 
 
 # finding distance to nearest point after na.omit, this will identify isolated points
-library(sp)
-library(rgeos)
 # proj dat into m units for gDistance
 sp1<-SpatialPointsDataFrame(dat_heron[,1:2], data=dat_heron, proj4string=CRS("+proj=longlat + datum=wgs84"))
 sp1proj <- spTransform(sp1, CRS=CRS("+proj=laea +lon_0=155 +lat_0=-21"))
@@ -149,7 +163,7 @@ hist(dat_heron$min.d)
 plot(Latitude~Longitude, dat_heron)
 points(Latitude~Longitude, dat_heron[dat_heron$min.d>75000,], col=2)
 
-dat_heron<-dat_heron[-which(dat_heron$min.d>75000),] #remove poor neighbors!
+dat_heron<-dat_heron[-which(dat_heron$min.d>75000),] #remove poor neighbors (very few)!
 
 # z-transform (scale and center) to make variables comparable on same scale
 # not doing that now!
@@ -159,7 +173,6 @@ dat_heron<-dat_heron[-which(dat_heron$min.d>75000),] #remove poor neighbors!
 
 
 # now have a look at collinearity
-library(car)
 vif(lm(1:nrow(dat_heron)~sst+shd+ekm+chl_log+wnd+tmc+smt_sqt+bty+bet_adu_03_ave+
          bet_juv_03_ave+bet_tot_03_ave+yft_adu_03_ave+
          yft_juv_03_ave+yft_tot_03_ave+skj_adu_03_ave+
@@ -178,13 +191,12 @@ pairs(dat_heron[,5:23], upper.panel = panel.smooth,lower.panel=panel.cor)
 # ok so actually for Heron I include both BET then
 # adult yft and juv skj
 # final one for model
-pairs(dat_heron[,c(6,7,9,10,12,13,14,17, 19, 22, 23) ], upper.panel = panel.smooth,lower.panel=panel.cor)
+pairs(dat_heron[,c(5,6,9,10,12,13,14,16,17, 19,20, 23, 24) ], upper.panel = panel.smooth,lower.panel=panel.cor)
 # looking at it in full, i would be tempted to remove shd, tmc and yellowfin adult
 
 # Some serious collinearity need to investigate using PCA
-library(vegan)
 #then z transform to standardize
-enviro_std<-decostand(dat_heron[,c(5,6,9,10,12,13,14,16,17,19,20,22,23)], method="standardize")
+enviro_std<-decostand(dat_heron[,c(5,6,9,10,12,13,14,16,17, 19,20, 23, 24)], method="standardize")
 # takes all varibs but eke also juv and adu tnua forms
 
 # then do pca (just a scaled RDA)
@@ -208,8 +220,8 @@ g<- ggplot()+
   geom_segment(data=NULL, aes(y=0, x=-Inf, yend=0, xend=Inf), linetype='dotted')+
   #geom_point(data=enviroPCA, aes(y=PC2, x=PC1, shape=treatshape, fill=treatfill),size=3)+scale_shape_identity()+scale_fill_identity()+
   geom_segment(data=enviro.species.scores, aes(y=0, x=0, yend=PC2, xend=PC1), arrow=arrow(length=unit(0.3,'lines')), colour='red')+theme_classic() 
-hjust<-ifelse(enviro.species.scores$PC1>0,0,1)
-vjust<-ifelse(enviro.species.scores$PC2>0,0,1)
+g<-g+geom_text_repel(data=enviro.species.scores, aes(y=PC2, x=PC1, label=Predictors), segment.size=0, colour='red')
+
 eig<-eigenvals(enviro_rda)
 g<- g+scale_y_continuous(paste(names(eig[2]), sprintf('(%0.1f%% explained var.)', 100* eig[2]/sum(eig))))+
   scale_x_continuous(paste(names(eig[1]), sprintf('(%0.1f%% explained var.)', 100* eig[1]/sum(eig))))
@@ -256,7 +268,6 @@ m2<-glm(PA~chl_log+wnd+
         family="binomial");resglm<-residuals(m2, type="pearson")
 summary(m2)
 print(sum((resid(m2, type="pearson")^2))/df.residual(m2))
-library(verification)
 print(roc.area(dat_heron$PA, fitted(m2))$A)
 
 resglm<-residuals(m2, type="pearson")
@@ -267,16 +278,15 @@ bubble(sp2, zcol='resglm')
 
 #write.csv(cbind(dat_heron, resglm), "test5.csv", quote=FALSE)
 
-#library(ncf)
+
 #corglm <- correlog(dat_heron$Longitude, dat_heron$Latitude, residuals(m2, type="pearson"), na.rm=T,
 #                   latlon=T, increment=25,resamp=1)
-library(spdep)
 RAC<-autocov_dist(resglm, cbind(dat_heron[,1], dat_heron[,2]),
                   nbs = 75, type = "one", zero.policy = T,
                   style = "B", longlat=TRUE)
 # Model outputs are sensitive to neighborhood distance.
 # here we use 75 kms as happy medium between different
-# variables' resolutions. Remeber points are at ~ 10km
+# variables' resolutions. Remember points are at ~ 10km
 # most variables are at ~25km or 100 resampled at 25.
 
 dat_heron$RAC<-RAC
@@ -291,20 +301,17 @@ plot(m3)
 print(sum((resid(m3, type="pearson")^2))/df.residual(m3))
 resglm<-residuals(m3, type="pearson")
 print(roc.area(dat_heron$PA, fitted(m3))$A)
-library(pscl)
 pR2(m3)
 summary(m3)
 
 # Save dataset we're happy with.
-#write.csv(dat_heron, "dat_heron_3000PA_final.csv", row.names=F, quote=F)
+#write.csv(dat_heron, "spreads/dat_heron_3000PA_final.csv", row.names=F, quote=F)
 
 # looking at variable importance/contribution
 
 anova(m3) # anova tests terms sequentially
-library(survey)
 regTermTest(m3, "chl_log")
 anova(m3, update(m3, ~.- "chl_log")) # basically tells the same as anova but gives significance too
-library(car)
 Anova(m3) # Anova from car tests terms according to marginality
 # i.e. after all other terms have been included
 
@@ -328,63 +335,13 @@ pR2(for.bic) # no diff really in r2
 
 anova(m3, for.aic, for.bic) # same model
 
-m4<-glm(PA~shd+wnd+poly(tmc,2)+
-          smt_sqt+poly(bty,2)+bet_adu_03_ave+bet_juv_03_ave+
-          poly(yft_adu_03_ave,2)+skj_juv_03_ave+RAC,
-        data=dat_heron, family="binomial")
-anova(m3, m4)
-
 # looking at variable importance/contribution
-library(caret)
-varImp(m4) 
-summary(m4)
-# all looks good but is showing a negative trend rather than
-# a positive so is modelled wrong, this is probably due to collinearity
-# make sure it is not modelling correct
-
-# Check collinearity..need to see whats acceptable..could potentially remove 
-# shd, tmc etc but pretty ruthless
-
-names(model.frame(m3))
-for (i in c("sst","chl_log","wnd","tmc","smt_sqt",                
-"bty","bet_adu_03_ave","RAC"))
-{
-temp<-dat_heron[1,-4]
-temp[1,]<-as.vector(apply(dat_heron[,-4], 2,median))
-
-heron_pred<-data.frame(varib=dat_heron[,which(names(dat_heron)==i)], 
-                       temp)
-names(heron_pred)[names(heron_pred)==i]<-"nope"
-names(heron_pred)[names(heron_pred)=="varib"]<-i
-
-p1<-predict(m3, newdata=heron_pred, type="response")
-
-d1<-data.frame(PA=dat_heron$PA, varib=heron_pred[,1], pred=p1)
-g1<-ggplot(data=d1, aes(y=PA, x=varib))
-print(i)
-print(g1+geom_jitter(height=0.1, size=0.5)+
-        geom_line(aes(y=pred, x=varib), colour=2))
-readline("hi@")
-}
-
-library(hier.part) # see if we can kinda validate with hier.part
-hp<-hier.part(y=dat_heron$PA, x=dat_heron[,c(8:11,15, 20, 21) ], family="binomial")
-# ok so kinda the same but hier.part is sometimes dodgy:
-#http://journals.plos.org/plosone/article?id=10.1371/journal.pone.0011698
-
-m5_interp<-glm(PA~chl_log+wnd+tmc+smt_sqt+poly(bty, 2, raw=T)+
-                 bet_adu_03_ave+
-                 poly(skj_juv_03_ave,2, raw=T),
-               data=dat_heron, family="binomial")
-anova(m5, m5_interp)
-
-summary(m5_interp)
+varImp(m3) 
+summary(m3)
+# seemingly ok, but this is a very crude metric of importance, just scaled
+# coefficient and standard error (z value). Collinearity is messing this up.
 
 #Dominance analysis
-
-install_github("clbustos/dominanceAnalysis")
-library(dominanceanalysis)
-source("~/grive/phd/scripts/paper2/hackedDominance.R")
 
 dm<-dm2(m3) # works!
 #I'll be using McFaddens' r2
@@ -400,6 +357,55 @@ dm2(update(m3,~.-  sst))$contribution.average$r2.m
 dm2(update(m3,~.-  chl_log))$contribution.average$r2.m
 # yep pretty much.
 
+# make same final model here but with non orthanonol polynomial,
+# this means that the coefficients are scaled correctly and more interpretable.
+
+m3_interp<-glm(PA~chl_log+wnd+
+                 smt_sqt+poly(bty,2, raw=T)+
+                 bet_adu_03_ave+
+                 +sst+RAC,
+               data=dat_heron, family="binomial")
+anova(m3, m3_interp)
+
+summary(m3_interp)
+
+exp(cbind(OR = coef(m3_interp), confint(m3_interp)))
+
+-53.26117519/(-28.50752856*2)
+# 0.9341598
+-1.922579e-03/(-2.427522e-07*2)
+# 3959.962
+
+exp(coef(m3))
+plogis(coef(m3))
+
+# Loop to check model predictions are correct, this checks for collinearity
+# to see if some trends look wrong or if other variables are seeing their response
+# supressed due to collinearity with others. For presentation we could show model m2
+# Where the RAC term is not included and therefore the responses of meaningful variables
+# are clearer.
+
+names(model.frame(m3))
+for (i in c("sst","chl_log","wnd","tmc","smt_sqt",                
+            "bty","bet_adu_03_ave","RAC"))
+{
+  temp<-dat_heron[1,-4]
+  temp[1,]<-as.vector(apply(dat_heron[,-4], 2,median))
+  
+  heron_pred<-data.frame(varib=dat_heron[,which(names(dat_heron)==i)], 
+                         temp)
+  names(heron_pred)[names(heron_pred)==i]<-"nope"
+  names(heron_pred)[names(heron_pred)=="varib"]<-i
+  
+  p1<-predict(m3, newdata=heron_pred, type="response")
+  
+  d1<-data.frame(PA=dat_heron$PA, varib=heron_pred[,1], pred=p1)
+  g1<-ggplot(data=d1, aes(y=PA, x=varib))
+  print(i)
+  print(g1+geom_jitter(height=0.1, size=0.5)+
+          geom_line(aes(y=pred, x=varib), colour=2))
+  readline("hi@")
+}
 
 
 
