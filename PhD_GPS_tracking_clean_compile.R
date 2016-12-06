@@ -1,4 +1,4 @@
-# 13/09/16 Lancaster, UK
+  # 13/09/16 Lancaster, UK
 # Clean and compile all GPS tracking data for use in multiple PhD chapters
 # Some things to remember:
 # Date, Time and DateTime are the unresampled Date and Time values (AEST),
@@ -19,8 +19,17 @@ heron_2015<-read.csv("~/grive/phd/sourced_data/Heron/Heron_2015_GPS/Heron_2015_G
 
 lhi_2014<-read.csv("~/grive/phd/fieldwork/LHI_Mar_2014/data/tracking_results/compiled_tracking_data.csv", h=T)
 
-lhi_2015<-read.csv("~/grive/phd/fieldwork/LHI_Feb_2015/data/tracking_results/compiled_tracking_data.csv", h=T)
+# LHI2014 suffers from UTC time issue (all points in UTC), need to
+# correct before proceeding
+lhi_2014$DateTime<-paste(lhi_2014$Date, lhi_2014$Time, sep="")
+lhi_2014$DateTime <- as.POSIXct(strptime(lhi_2014$DateTime, "%Y/%m/%d %H:%M:%S"), "GMT")
+lhi_2014$TrackTime <- as.double(lhi_2014$DateTime)
+# bit below advances time to UTC +11
+lhi_2014$TrackTime<-lhi_2014$TrackTime+(11*60)*60
+lhi_2014$Date <- as.Date(as.POSIXlt(lhi_2014$TrackTime, origin="1970-01-01", "GMT"))
+lhi_2014$Time <- format((as.POSIXlt(lhi_2014$TrackTime, origin="1970-01-01", "GMT")), "%H:%M:%S")
 
+lhi_2015<-read.csv("~/grive/phd/fieldwork/LHI_Feb_2015/data/tracking_results/compiled_tracking_data.csv", h=T)
 lhi_2016<-read.csv("~/grive/phd/fieldwork/LHI_Feb_2016/data/tracking_data/compiled_tracking_data.csv", h=T)
                             
 #makes sure we're using the AEST datetime NOT the UTC one!
@@ -41,6 +50,7 @@ dat<-rbind(data.frame( TrackID=heron_2015$TrackID, Date=heron_2015$Date, Time=he
 
 dat$DateTime<-paste(dat$Date, dat$Time, sep="")
 dat$DateTime <- as.POSIXct(strptime(dat$DateTime, "%Y/%m/%d %H:%M:%S"), "GMT")
+
 dat$TrackTime <- as.double(dat$DateTime)
 head(dat)
 
@@ -220,6 +230,24 @@ states<-viterbi(hmm_1)
 dat$HMMstates<-states
 write.csv(dat, "GPS_141516_clean_resamp_tripsplit_hmm.csv", quote=F, row.names=F)
 
+# fix to correct UTC error times in lhi 2014 data
+dat<-read.csv("GPS_141516_clean_resamp_tripsplit_hmm.csv", h=T)
+dat$Year<-substr(dat$Date, 1,4)
+
+d1<-dat[which(dat$Colony=="LHI" & dat$Year==2014),]
+d2<-dat[-which(dat$Colony=="LHI" & dat$Year==2014),]
+
+d1$TrackTime<-d1$TrackTime+(11*60)*60
+
+d1$DateAEST<-as.character(d1$DateAEST)
+
+d1$DateAEST<-as.Date(as.POSIXlt(d1$TrackTime,origin="1970-01-01", "GMT"))
+d1$TimeAEST <-format((as.POSIXlt(d1$TrackTime,origin="1970-01-01", "GMT")), "%H:%M:%S")
+
+dat<-rbind(d1, d2)
+
+write.csv(dat, "GPS_141516_clean_resamp_tripsplit_hmm.csv", quote=F, row.names=F)
+
 ### Now we make the trip summary statistics
 
 ### SUMMARISE MAX DIST FROM COLONY AND TRIP TRAVELLING TIME FOR EACH TRIP
@@ -279,7 +307,7 @@ trip_distances[trip_distances$trip_type=="S" &
 # this is a kind of best guess but need to validate these 'long' trips
 
 #write out trip distances
-
+trip_distances[trip_distances$Returns=="",]$Returns<-"Y"
 write.csv(trip_distances, "GPS_141516_trip_summary.csv", quote=F, row.names=F)
 
 
@@ -289,6 +317,7 @@ dat$trip_type<-trip_distances[match(dat$trip_id,trip_distances$trip),]$trip_type
 # fix for some cheeky little LTs that are actually STs
 dat[dat$trip_id %in% c("25_02_15_06LW3", "28_03_15_04LW4",
                        "16_02_16_41LW3", "18_02_16_22LW3"),]$trip_type<-"S"
+
 
 dat$Month<-substr(dat$DateAEST, 6,7)
 dat$Year<-substr(dat$DateAEST, 1,4)
