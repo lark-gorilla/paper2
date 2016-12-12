@@ -68,8 +68,15 @@ writeRaster(r1, paste("~/grive/phd/sourced_data/env_data/climatologies/thermocli
 bathy<-raster("~/grive/phd/sourced_data/env_data/phd_bathy/GRIDONE_2D_100.0_-45.0_180.0_40.0.nc")
 smounts<-read.table("~/grive/phd/sourced_data/env_data/seamounts/seamounts_KWSMTSv01.txt",
            skip=16, header=T, sep = "\t", comment.char=">")
-plot(Latitude~Longitude, smounts, pch=7, cex=0.5)
 
+qplot(data=smounts[smounts$Latitude< 0 & smounts$X..Longitude>150,],
+      y=Latitude, x=X..Longitude, colour=Height)
+
+write.csv(smounts[smounts$Latitude< 0 & smounts$X..Longitude>150,],
+          "~/grive/phd/sourced_data/env_data/seamounts/smounts_regional.csv",
+          quote=F, row.names=F)
+  
+maps(world, add=T)
 sm_ras_wgs<-rasterize(data.frame(smounts$Longitude,
                       smounts$Latitude),bathy, field=1, background=NA) 
 
