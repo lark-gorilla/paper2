@@ -1,10 +1,36 @@
 # 10/10/16 Lancaster, UK
 # Model HMM data modelling foraging against non-foraging
 
-
 rm(list=ls())
 library(ggplot2)
 library(reshape2)
+library(lme4) 
+library(verification)
+library(MuMIn)
+library(vegan)
+library(ggrepel)
+library(ncf)
+
+# extra functions for pairs multicollinearity exploration
+panel.cor <- function(x, y, digits=2, prefix="", cex.cor) 
+{
+  usr <- par("usr"); on.exit(par(usr)) 
+  par(usr = c(0, 1, 0, 1)) 
+  r <- abs(cor(x, y)) 
+  txt <- format(c(r, 0.123456789), digits=digits)[1] 
+  txt <- paste(prefix, txt, sep="") 
+  if(missing(cex.cor)) cex <- 0.8/strwidth(txt) 
+  
+  test <- cor.test(x,y) 
+  # borrowed from printCoefmat
+  Signif <- symnum(test$p.value, corr = FALSE, na = FALSE, 
+                   cutpoints = c(0, 0.001, 0.01, 0.05, 0.1, 1),
+                   symbols = c("***", "**", "*", ".", " ")) 
+  
+  text(0.5, 0.5, txt, cex = cex * r) 
+  text(.8, .8, Signif, cex=cex, col=2) 
+}
+
 
 setwd("~/grive/phd/analyses/paper2")
 
@@ -65,7 +91,7 @@ dat[dat$HMMstates!=3,]$for_bin<-1
 
 #setup NA removed col year datasets
 # Very important to remove NA prior to modelling
-d_mod<-dat[,c(6,16,23,30,31,36:42,44:46,50:52, 4, 5)]
+d_mod<-dat[,c(6,20,16,23,30,31,36:42,44:46,50:52, 4, 5)]
 HER15<-na.omit(d_mod[d_mod$Colony=="Heron",])
 LHI14<-na.omit(d_mod[d_mod$Colony=="LHI" & d_mod$Year==2014,])
 LHI15<-na.omit(d_mod[d_mod$Colony=="LHI"& d_mod$Year==2015,])
@@ -78,20 +104,20 @@ vif(lm(1:nrow(HER15)~ekmU+modW+SST+ASST+
 ## RESAMPLE data to once every 3 points to reduce SPAC to acceptable level
 
 HER15<-HER15[seq(1, nrow(HER15), 3),]
-
+LHI14<-LHI14[seq(1, nrow(LHI14), 3),]
+LHI15<-LHI15[seq(1, nrow(LHI15), 3),]
+# LHI16 doesnt have tuna data so dropping
 
 #removeunused factors
 HER15$trip_id<-factor(HER15$trip_id)
 LHI14$trip_id<-factor(LHI14$trip_id)
 LHI15$trip_id<-factor(LHI15$trip_id)
-LHI16$trip_id<-factor(LHI16$trip_id)
 
 # do z transform if needed due to convergence error - often corr. related
 #library(vegan)
 #HER15<-data.frame(HER15[,c(18,1,2,3,19, 20)],decostand(HER15[,4:17],method="standardize"))
 #LHI14<-data.frame(LHI14[,c(12,1,2,3)],decostand(LHI14[,4:11],method="standardize"))
 #LHI15<-data.frame(LHI15[,c(12,1,2,3)],decostand(LHI15[,4:11],method="standardize"))
-#LHI16<-data.frame(LHI16[,c(12,1,2,3)],decostand(LHI16[,4:11],method="standardize"))
 
 #**** ^^^%%%% Heron Island %%%^^^ *****#
 # corr
@@ -102,16 +128,14 @@ cor(HER15[,4:17 ])
 enviro_std<-decostand(HER15[,4:17 ], method="standardize")
 # takes all varibs but eke also juv and adu tnua forms
 
-# then do pca (just a scaled RDA)
+#!! then do pca (just a scaled RDA) !!#
 enviro_rda<-rda(enviro_std, scale=T)
 summary(enviro_rda, display=NULL)
 screeplot(enviro_rda) # badly scaled
 #full summary
-summary(enviro_rda)
-
+#summary(enviro_rda)
 enviro.sites.scores<-as.data.frame(scores(enviro_rda, choices=1:4, display='sites', scaling=1)) 
 # i've put scaling to 1 for the sites to fit better on the plot
-
 # Now make some plots
 enviro.species.scores<-as.data.frame(scores(enviro_rda, display='species'))
 enviro.species.scores$Predictors<-colnames(enviro_std)
@@ -130,16 +154,10 @@ g<- g+scale_y_continuous(paste(names(eig[2]), sprintf('(%0.1f%% explained var.)'
   scale_x_continuous(paste(names(eig[1]), sprintf('(%0.1f%% explained var.)', 100* eig[1]/sum(eig))))
 
 g
+###!! Save RDA !!### 
 
-
-library(lme4) # initially with glmm
-library(verification)
-library(mgcv)
-library(gamm4)
-library(MuMIn)
-
+# Have a look at data
 d1<-melt(HER15, id.vars=c("for_bin","trip_id", "Colony", "Year"))
-
 g1<-ggplot(data=d1, aes(x=value))
 g1+geom_histogram()+facet_wrap(~variable, scale="free")
 # look to remove outliers
@@ -153,7 +171,7 @@ g1+geom_boxplot()+facet_wrap(~variable, scale="free")
 
 g1+geom_jitter(height=0.1)+geom_smooth(method="glm")+facet_wrap(~variable, scale="free")
 
-# selecting which variables to use
+# selecting which tuna variables to use
 AIC(glmer(for_bin~skjA + (1|trip_id), family="binomial", data=HER15),
     glmer(for_bin~skjJ + (1|trip_id), family="binomial", data=HER15),
     glmer(for_bin~yftA + (1|trip_id), family="binomial", data=HER15),
@@ -166,9 +184,14 @@ pairs(HER15[,c(4:7, 12, 15,17) ], upper.panel = panel.smooth,lower.panel=panel.c
 # not bad, try without modW 
 
 qplot(data=HER15, x=yftA, bins=50)+facet_grid(for_bin~.)
+
+# Easier to rescale variables after analysis
+#bet_juvenil_potential_biomass
+#BIGEYE weekly biomass distribution
 #HER15$yftA<-(HER15$yftA*1000000)/1000 
 #HER15$betJ<-(HER15$betJ*1000000)/1000 
 
+# Choose which variables are better suited to 2nd degree polynomial
 g1<-ggplot(data=d1, aes(y=for_bin, x=value))
 g1+geom_jitter(height=0.1)+
   geom_smooth(method="glm")+
@@ -189,12 +212,26 @@ he15glmer2<-glmer(for_bin~poly(ekmU,2)+modW+ASST+poly(sshHy,2)+
                    SQRTsmt+ betJ+(1|trip_id), family="binomial", 
                  data=HER15)
 
-anova(he15glmer,he15glmer2) # drop it
-confint(he15glmer) # takes ages
+summary(he15glmer2) # modW looking reversed. due to corr remove
 
+he15glmer3<-glmer(for_bin~poly(ekmU,2)+ASST+poly(sshHy,2)+
+                    SQRTsmt+ betJ+(1|trip_id), family="binomial", 
+                  data=HER15)
+
+anova(he15glmer,he15glmer2, he15glmer3) # drop it and get rid of wnd
+confint(he15glmer3, method='boot', nsim=99) # takes ages
 drop1(he15glmer2, test="Chisq") # no others
 
-library(MuMIn)
+# Model details
+
+sum((resid(he15glmer3, type="pearson")^2))/df.residual(he15glmer3)
+#1.023228
+summary(he15glmer3)
+roc.area(obs=HER15$for_bin,pred=fitted(he15glmer3)) #0.8
+r.squaredGLMM(he15glmer3)
+#R2m       R2c 
+#0.3609434 0.4977527 
+
 
 ms1<-model.sel(glmer(for_bin~SQRTsmt+ betJ+(1|trip_id), family="binomial", data=HER15),
           glmer(for_bin~poly(ekmU,2)+ betJ+(1|trip_id), family="binomial", data=HER15),
@@ -214,30 +251,270 @@ importance(ms1) # very important number of times term is used are equal
 # Either go with the above AIC comp or just dont do importance all together
 #re. http://blog.minitab.com/blog/adventures-in-statistics/how-to-identify-the-most-important-predictor-variables-in-regression-models
 
-
-roc.area(obs=HER15$for_bin,pred=fitted(he15glmer)) 
-
-r.squaredGLMM(he15glmer)
-
-corm3 <- spline.correlog(HER15[seq(1, (nrow(HER15)-1), 3),]$Longitude,
-         HER15[seq(1, (nrow(HER15)-1), 3),]$Latitude, residuals(he15glmer3, type="pearson"), 
+# check spatial autocorr of final model, should be fine due to 1:3 point resample
+corm3 <- spline.correlog(HER15$Longitude,
+         HER15$Latitude, residuals(he15glmer2, type="pearson"), 
          na.rm=T, latlon=T,resamp=1)
 
+#**** ^^^%%%% %%%^^^ *****#
 
-Computing profile confidence intervals ...
-2.5 %     97.5 %
-  .sig01            0.61494964  1.9088680
-(Intercept)      -0.08758719  1.5789438
-poly(ekmU, 2)1   -4.36313435  8.2350966
-poly(ekmU, 2)2  -15.90901992 -5.0843853
-modW             -0.79390225 -0.1652826
-ASST              0.32977912  0.7149026
-poly(sshHy, 2)1 -11.89696903  9.8468658
-poly(sshHy, 2)2 -21.09372043 -8.5808109
-SQRTsmt          -0.89782023 -0.3286204
-yftA             -0.12502836  0.3774316
-betJ              0.17396784  0.6561373
+#**** ^^^%%%% LHI 2014 %%%^^^ *****#
+# corr
+pairs(LHI14[,5:18 ], upper.panel = panel.smooth,lower.panel=panel.cor)
+# outliers, in tuna data especially
+cor(LHI14[,5:18 ])
 
+enviro_std<-decostand(LHI14[,5:18 ], method="standardize")
+# takes all varibs but eke also juv and adu tnua forms
+
+#!! then do pca (just a scaled RDA) !!#
+enviro_rda<-rda(enviro_std, scale=T)
+summary(enviro_rda, display=NULL)
+screeplot(enviro_rda) # badly scaled
+#full summary
+#summary(enviro_rda)
+enviro.sites.scores<-as.data.frame(scores(enviro_rda, choices=1:4, display='sites', scaling=1)) 
+# i've put scaling to 1 for the sites to fit better on the plot
+# Now make some plots
+enviro.species.scores<-as.data.frame(scores(enviro_rda, display='species'))
+enviro.species.scores$Predictors<-colnames(enviro_std)
+#enviro.species.scores$Pred_codes<-codez
+head(enviro.species.scores)
+
+g<- ggplot()+
+  geom_segment(data=NULL, aes(y=-Inf, x=0, yend=Inf, xend=0), linetype='dotted')+
+  geom_segment(data=NULL, aes(y=0, x=-Inf, yend=0, xend=Inf), linetype='dotted')+
+  #geom_point(data=enviroPCA, aes(y=PC2, x=PC1, shape=treatshape, fill=treatfill),size=3)+scale_shape_identity()+scale_fill_identity()+
+  geom_segment(data=enviro.species.scores, aes(y=0, x=0, yend=PC2, xend=PC1), arrow=arrow(length=unit(0.3,'lines')), colour='red')+theme_classic() 
+g<-g+geom_text_repel(data=enviro.species.scores, aes(y=PC2, x=PC1, label=Predictors), segment.size=0, colour='red')
+
+eig<-eigenvals(enviro_rda)
+g<- g+scale_y_continuous(paste(names(eig[2]), sprintf('(%0.1f%% explained var.)', 100* eig[2]/sum(eig))))+
+  scale_x_continuous(paste(names(eig[1]), sprintf('(%0.1f%% explained var.)', 100* eig[1]/sum(eig))))
+
+g
+###!! Save RDA !!### 
+
+# Have a look at data
+d1<-melt(LHI14, id.vars=c("for_bin","trip_id", "Colony", "Year"))
+g1<-ggplot(data=d1, aes(x=value))
+g1+geom_histogram()+facet_wrap(~variable, scale="free")
+# look to remove outliers
+#LHI14<-LHI14[-which(LHI14$skjA>0.1),]
+d1<-melt(LHI14, id.vars=c("for_bin","trip_id", "Colony", "Year", "Month"))
+g1<-ggplot(data=d1, aes(x=value))
+g1+geom_histogram()+facet_wrap(~variable, scale="free")
+
+g1<-ggplot(data=d1, aes(y=value, x=factor(for_bin)))
+g1+geom_boxplot()+facet_wrap(~variable, scale="free")
+
+g1+geom_jitter(height=0.1)+geom_smooth(method="glm")+facet_wrap(~variable, scale="free")
+
+# selecting which tuna variables to use
+AIC(glmer(for_bin~skjA + (1|trip_id), family="binomial", data=LHI14),
+    glmer(for_bin~skjJ + (1|trip_id), family="binomial", data=LHI14),
+    glmer(for_bin~yftA + (1|trip_id), family="binomial", data=LHI14),
+    glmer(for_bin~yftJ + (1|trip_id), family="binomial", data=LHI14),
+    glmer(for_bin~betA + (1|trip_id), family="binomial", data=LHI14),
+    glmer(for_bin~betJ + (1|trip_id), family="binomial", data=LHI14))
+
+# yft juv and bet juv   + skj adu
+pairs(LHI14[,c(5:7,9, 13, 14,16,17,18)], upper.panel = panel.smooth,lower.panel=panel.cor)
+# not bad, try without modW 
+
+
+qplot(data=LHI14, x=LOGCHL_A, bins=50)+facet_grid(for_bin~.)
+# remove CHL outliers
+LHI14<-LHI14[which(LHI14$LOGCHL_A< -2),]
+
+# Easier to rescale variables after analysis
+#bet_juvenil_potential_biomass
+#BIGEYE weekly biomass distribution
+#LHI14$yftA<-(LHI14$yftA*1000000)/1000 
+#LHI14$betJ<-(LHI14$betJ*1000000)/1000 
+
+# Choose which variables are better suited to 2nd degree polynomial
+g1<-ggplot(data=d1, aes(y=for_bin, x=value))
+g1+geom_jitter(height=0.1)+
+  geom_smooth(method="glm")+
+  geom_smooth(method="glm", formula=y~poly(x, 2), colour=2)+
+  facet_wrap(~variable, scale="free")
+#polys for ekm and ssh
+
+lhi14glmer<-glmer(for_bin~poly(ekmU,2)+modW+poly(ASST,2)+poly(sshHy,2)+
+                   SQRTsmt+ yftJ + LOGCHL_A+ (1|trip_id), family="binomial", 
+                 data=LHI14)
+# throws warning this is due to corr variables and smt being crap
+# can get round by rescaling, in any case modW could maybe go
+summary(lhi14glmer)
+sum((resid(lhi14glmer, type="pearson")^2))/df.residual(lhi14glmer)
+
+# We remove modW and refit - still warning 
+lhi14glmer2<-glmer(for_bin~poly(ekmU,2)+poly(ASST, 2)+poly(sshHy,2)+
+                    SQRTsmt+ yftJ + LOGCHL_A+(1|trip_id), family="binomial", 
+                  data=LHI14)
+
+# We remove smt and refit - no warning
+lhi14glmer3<-glmer(for_bin~poly(ekmU,2)+poly(ASST,2)+poly(sshHy,2)+
+                    yftJ + LOGCHL_A+(1|trip_id), family="binomial", 
+                   data=LHI14)
+
+anova(lhi14glmer,lhi14glmer2, lhi14glmer3) # good to drop modW and smt
+summary(lhi14glmer2) # some other variables look iffy now, test with confint
+
+confint(lhi14glmer2, method='boot', nsim=99) # takes ages remove smt and ssh poly
+confint(lhi14glmer2)# no warning
+drop1(lhi14glmer3, test="Chisq") # Asst and ssh's poly?
+
+lhi14glmer3a<-glmer(for_bin~poly(ekmU,2)+ASST+poly(sshHy,2)+
+                     yftJ + LOGCHL_A+(1|trip_id), family="binomial", 
+                   data=LHI14)
+lhi14glmer3b<-glmer(for_bin~poly(ekmU,2)+poly(ASST,2)+sshHy+
+                      yftJ + LOGCHL_A+(1|trip_id), family="binomial", 
+                    data=LHI14)
+lhi14glmer3c<-glmer(for_bin~poly(ekmU,2)+ASST+sshHy+
+                      yftJ + LOGCHL_A+(1|trip_id), family="binomial", 
+                    data=LHI14)
+
+anova(lhi14glmer3,lhi14glmer3a, lhi14glmer3b, lhi14glmer3c) 
+# poly terms not significant
+lhi14glmer3<-lhi14glmer3c
+# Model details
+
+sum((resid(lhi14glmer3, type="pearson")^2))/df.residual(lhi14glmer3)
+# 0.9804307
+summary(lhi14glmer3)
+roc.area(obs=LHI14$for_bin,pred=fitted(lhi14glmer3)) #0.73
+r.squaredGLMM(lhi14glmer3)
+#R2m       R2c 
+#0.1492239 0.2851388   
+
+# check spatial autocorr of final model, should be fine due to 1:3 point resample
+corm3 <- spline.correlog(LHI14$Longitude,
+                         LHI14$Latitude, residuals(lhi14glmer3, type="pearson"), 
+                         na.rm=T, latlon=T,resamp=1)
+
+#**** ^^^%%%% %%%^^^ *****#
+
+#**** ^^^%%%% LHI 2014 %%%^^^ *****#
+# corr
+pairs(LHI15[,5:18 ], upper.panel = panel.smooth,lower.panel=panel.cor)
+# outliers, in tuna data especially
+cor(LHI15[,5:18 ])
+
+enviro_std<-decostand(LHI15[,5:18 ], method="standardize")
+# takes all varibs but eke also juv and adu tnua forms
+
+#!! then do pca (just a scaled RDA) !!#
+enviro_rda<-rda(enviro_std, scale=T)
+summary(enviro_rda, display=NULL)
+screeplot(enviro_rda) # badly scaled
+#full summary
+#summary(enviro_rda)
+enviro.sites.scores<-as.data.frame(scores(enviro_rda, choices=1:4, display='sites', scaling=1)) 
+# i've put scaling to 1 for the sites to fit better on the plot
+# Now make some plots
+enviro.species.scores<-as.data.frame(scores(enviro_rda, display='species'))
+enviro.species.scores$Predictors<-colnames(enviro_std)
+#enviro.species.scores$Pred_codes<-codez
+head(enviro.species.scores)
+
+g<- ggplot()+
+  geom_segment(data=NULL, aes(y=-Inf, x=0, yend=Inf, xend=0), linetype='dotted')+
+  geom_segment(data=NULL, aes(y=0, x=-Inf, yend=0, xend=Inf), linetype='dotted')+
+  #geom_point(data=enviroPCA, aes(y=PC2, x=PC1, shape=treatshape, fill=treatfill),size=3)+scale_shape_identity()+scale_fill_identity()+
+  geom_segment(data=enviro.species.scores, aes(y=0, x=0, yend=PC2, xend=PC1), arrow=arrow(length=unit(0.3,'lines')), colour='red')+theme_classic() 
+g<-g+geom_text_repel(data=enviro.species.scores, aes(y=PC2, x=PC1, label=Predictors), segment.size=0, colour='red')
+
+eig<-eigenvals(enviro_rda)
+g<- g+scale_y_continuous(paste(names(eig[2]), sprintf('(%0.1f%% explained var.)', 100* eig[2]/sum(eig))))+
+  scale_x_continuous(paste(names(eig[1]), sprintf('(%0.1f%% explained var.)', 100* eig[1]/sum(eig))))
+
+g
+###!! Save RDA !!### 
+
+# Have a look at data
+d1<-melt(LHI15, id.vars=c("for_bin","trip_id", "Colony", "Year"))
+g1<-ggplot(data=d1, aes(x=value))
+g1+geom_histogram()+facet_wrap(~variable, scale="free")
+# look to remove outliers
+#LHI15<-LHI15[-which(LHI15$skjA>0.1),]
+d1<-melt(LHI15, id.vars=c("for_bin","trip_id", "Colony", "Year", "Month"))
+g1<-ggplot(data=d1, aes(x=value))
+g1+geom_histogram()+facet_wrap(~variable, scale="free")
+
+g1<-ggplot(data=d1, aes(y=value, x=factor(for_bin)))
+g1+geom_boxplot()+facet_wrap(~variable, scale="free")
+
+# selecting which tuna variables to use
+AIC(glmer(for_bin~skjA + (1|trip_id), family="binomial", data=LHI15),
+    glmer(for_bin~skjJ + (1|trip_id), family="binomial", data=LHI15),
+    glmer(for_bin~yftA + (1|trip_id), family="binomial", data=LHI15),
+    glmer(for_bin~yftJ + (1|trip_id), family="binomial", data=LHI15),
+    glmer(for_bin~betA + (1|trip_id), family="binomial", data=LHI15),
+    glmer(for_bin~betJ + (1|trip_id), family="binomial", data=LHI15))
+
+# skj adu or juv   + yft juv
+pairs(LHI15[,c(5:7,10,11, 14,16,17,18)], upper.panel = panel.smooth,lower.panel=panel.cor)
+# not bad, try without modW 
+
+
+qplot(data=LHI15, x=ASST, bins=50)+facet_grid(for_bin~.)
+
+# Easier to rescale variables after analysis
+#bet_juvenil_potential_biomass
+#BIGEYE weekly biomass distribution
+#LHI15$yftA<-(LHI15$yftA*1000000)/1000 
+#LHI15$betJ<-(LHI15$betJ*1000000)/1000 
+
+# Choose which variables are better suited to 2nd degree polynomial
+g1<-ggplot(data=d1, aes(y=for_bin, x=value))
+g1+geom_jitter(height=0.1)+
+  geom_smooth(method="glm")+
+  geom_smooth(method="glm", formula=y~poly(x, 2), colour=2)+
+  facet_wrap(~variable, scale="free")
+#polys for ekm and ASST, can't have ssh
+
+LHI15glmer<-glmer(for_bin~poly(ekmU,2)+modW+poly(ASST,2)+
+                    SQRTsmt+ skjA+  (1|trip_id), family="binomial", 
+                  data=LHI15)
+
+summary(LHI15glmer) # modW looks inflated, probs due to corr
+sum((resid(LHI15glmer, type="pearson")^2))/df.residual(LHI15glmer)
+
+# We remove modW and refit 
+LHI15glmer2<-glmer(for_bin~poly(ekmU,2)+poly(ASST,2)+
+                     SQRTsmt+ skjA+  (1|trip_id), family="binomial", 
+                   data=LHI15)
+
+
+anova(LHI15glmer,LHI15glmer2) # higher AIC in glmer2 but need to drop wnd
+summary(LHI15glmer2) # good, smt looks less sig tho
+
+confint(LHI15glmer2, method='boot', nsim=99) # takes ages remove smt and ssh poly
+confint(LHI15glmer2)# no warning
+drop1(LHI15glmer2, test="Chisq") # Asst and ssh's poly?
+
+# Model details
+
+sum((resid(LHI15glmer2, type="pearson")^2))/df.residual(LHI15glmer2)
+#1.068224
+summary(LHI15glmer2)
+roc.area(obs=LHI15$for_bin,pred=fitted(LHI15glmer2)) #0.73
+r.squaredGLMM(LHI15glmer2)
+#R2m       R2c 
+#0.2965124 0.5212758  
+
+# check spatial autocorr of final model, should be fine due to 1:3 point resample
+corm3 <- spline.correlog(LHI15$Longitude,
+                         LHI15$Latitude, residuals(LHI15glmer2, type="pearson"), 
+                         na.rm=T, latlon=T,resamp=1)
+
+
+
+
+
+#### old
 
 lh14glmer<-glmer(for_bin~ekmU+modW+SST+ASST+sshHy+bty+
                    SQRTsmt+LOGCHL_A + (1|trip_id), family="binomial", 
