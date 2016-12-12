@@ -110,7 +110,7 @@ qplot(smt, data=dat);qplot(sqrt(smt), data=dat)
 dat$chl_log<-log(dat$chl)
 dat$smt_sqt<-sqrt(dat$smt)
 # changes BET from g/m2 to kg/km2 (bigger units in model)
-dat$bet_adu_03_ave<-(dat$bet_adu_03_ave*1000000)/1000 
+#dat$bet_adu_03_ave<-(dat$bet_adu_03_ave*1000000)/1000 
 
 qplot(data=dat[dat$dset=="Heron",], x=wnd, bins=50)+facet_grid(PA~.)
 
@@ -159,9 +159,9 @@ dat_heron$min.d<-min.d
 hist(dat_heron$min.d)
 
 plot(Latitude~Longitude, dat_heron)
-points(Latitude~Longitude, dat_heron[dat_heron$min.d>75000,], col=2)
+points(Latitude~Longitude, dat_heron[dat_heron$min.d>50000,], col=2)
 
-dat_heron<-dat_heron[dat_heron$min.d<75000,]
+dat_heron<-dat_heron[dat_heron$min.d<50000,]
 
 
 
@@ -260,12 +260,12 @@ g1+geom_jitter(height=0.1, size=0.5)+geom_smooth(method="glm", colour=2)+
 
 # We would do below for each variable individually to see the suitability of a poly
 
-m_lin<-glm(PA~sst,data=dat_heron, family="binomial")
-m_pol<-glm(PA~poly(sst, 2),data=dat_heron, family="binomial")
-d1<-data.frame(PA=dat_heron$PA, sst=dat_heron$sst, m_lin=fitted(m_lin), m_pol=fitted(m_pol))
-g1<-ggplot(data=d1, aes(y=PA, x=sst))
-g1+geom_jitter(height=0.1, size=0.5)+geom_line(aes(y=m_lin, x=sst), colour=2)+
-  geom_line(aes(y=m_pol, x=sst), colour=3)
+m_lin<-glm(PA~skj_juv_03_ave,data=dat_heron, family="binomial")
+m_pol<-glm(PA~poly(skj_juv_03_ave, 2),data=dat_heron, family="binomial")
+d1<-data.frame(PA=dat_heron$PA, skj_juv_03_ave=dat_heron$skj_juv_03_ave, m_lin=fitted(m_lin), m_pol=fitted(m_pol))
+g1<-ggplot(data=d1, aes(y=PA, x=skj_juv_03_ave))
+g1+geom_jitter(height=0.1, size=0.5)+geom_line(aes(y=m_lin, x=skj_juv_03_ave), colour=2)+
+  geom_line(aes(y=m_pol, x=skj_juv_03_ave), colour=3)
 anova(m_lin, m_pol)
 #poly model better in the case of skj_juv it gives the 0 to 1 warning so only use linear
 # It was important to work out what was causing the warning: glm.fit: fitted probabilities numerically 0 or 1 occurred
@@ -279,23 +279,47 @@ anova(m_lin, m_pol)
 
 # Choose either sst, chla, skj_adu as tropical tuna metric
 
-pairs(dat_heron[,c(5,9,12,13,16 ,23,24) ], upper.panel = panel.smooth,lower.panel=panel.cor)
+# see which tuna metric is best predictor
+
+AIC(glm(PA~bet_adu_03_ave,data=dat_heron, family="binomial"),
+    glm(PA~bet_juv_03_ave,data=dat_heron, family="binomial"),
+    glm(PA~skj_adu_03_ave,data=dat_heron, family="binomial"),
+    glm(PA~skj_juv_03_ave,data=dat_heron, family="binomial"),
+    glm(PA~yft_adu_03_ave,data=dat_heron, family="binomial"),
+    glm(PA~yft_juv_03_ave,data=dat_heron, family="binomial"))
+
+# bet_juv, skj_juv, bet_adu, skj_adu    
+  
+pairs(dat_heron[,c(12,13,14,16,17, 20 ,23,24) ], upper.panel = panel.smooth,lower.panel=panel.cor)
 
 pairs(dat_heron[,c(9,12,13,16 ,24) ], upper.panel = panel.smooth,lower.panel=panel.cor)
 pairs(dat_heron[,c(5,9,12,13 ,24) ], upper.panel = panel.smooth,lower.panel=panel.cor)
 pairs(dat_heron[,c(9,12,13, 23,24) ], upper.panel = panel.smooth,lower.panel=panel.cor)
 
-m2a<-glm(PA~wnd+chl_log+smt_sqt+bty+bet_adu_03_ave,
+#outlers again
+qplot(data=dat_heron, x=chl_log, bins=50)+facet_grid(PA~.)
+
+dat_heron<-dat_heron[dat_heron$bet_adu_03_ave<0.012,]
+dat_heron<-dat_heron[dat_heron$chl_log<7,]
+
+m2a<-glm(PA~wnd+chl_log+smt_sqt+bty+tmc,
   data=dat_heron, family="binomial")
-m2b<-glm(PA~wnd+sst+smt_sqt+bty+bet_adu_03_ave,
+m2b<-glm(PA~wnd+sst+smt_sqt+bty,
   data=dat_heron, family="binomial")
-m2c<-glm(PA~wnd+skj_adu_03_ave+smt_sqt+bty+bet_adu_03_ave,
+m2c<-glm(PA~skj_adu_03_ave+bet_juv_03_ave+
+           smt_sqt+bty+bet_adu_03_ave,
          data=dat_heron, family="binomial")
+m2d<-glm(PA~wnd+shd+smt_sqt+bty+tmc,
+         data=dat_heron, family="binomial")
+
+AIC(m2a, m2b, m2c, m2d)
+
 
 anova(m2a, m2b, m2c);AIC(m2a, m2b, m2c)
 pR2(m2a)[4];pR2(m2b)[4];pR2(m2c)[4]
 
-m2<-glm(PA~tmc+wnd+chl_log+smt_sqt+bty+bet_adu_03_ave,
+m2<-glm(PA~chl_log+smt_sqt+yft_juv_03_ave+
+          bty+bet_juv_03_ave,
          data=dat_heron, family="binomial");resglm<-residuals(m2, type="pearson")
 
 resglm<-residuals(m2, type="pearson")
@@ -311,32 +335,55 @@ bubble(sp2, zcol='resglm')
 #corglm <- correlog(dat_heron$Longitude, dat_heron$Latitude, residuals(m2, type="pearson"), na.rm=T,
 #                   latlon=T, increment=25,resamp=1)
 RAC<-autocov_dist(resglm, cbind(dat_heron[,1], dat_heron[,2]),
-                  nbs = 75, type = "one", zero.policy = T,
+                  nbs = 50, type = "one", zero.policy = T,
                   style = "B", longlat=TRUE)
 # Model outputs are sensitive to neighborhood distance.
-# here we use 75 kms as happy medium between different
+# here we use 50 kms as happy medium between different
 # variables' resolutions. Remember points are at ~ 10km
-# most variables are at ~25km or 100 resampled at 25.
+# as are chl and bty smt tuna are 100km resampled at 25.
+# 50km neighbourhood gives better SPAC reduction than 75
 
 dat_heron$RAC<-RAC
 
-m3<-glm(PA~tmc+wnd+chl_log+
-          smt_sqt+bty+
-          bet_adu_03_ave+
-          RAC,
+m3<-glm(PA~chl_log+smt_sqt+yft_juv_03_ave+
+          bty+bet_juv_03_ave+RAC,
         data=dat_heron, family="binomial")
 
 plot(m3)
 print(sum((resid(m3, type="pearson")^2))/df.residual(m3))
-resglm<-residuals(m3, type="pearson")
+
+# Huge resids = overdisp.
+# refit on reidual removed dataset
+
+dat_heron<-dat_heron[-which(resid(m3, type="pearson")< -10),]
+
+m2<-glm(PA~chl_log+smt_sqt+yft_juv_03_ave+
+          bty+bet_juv_03_ave,
+        data=dat_heron, family="binomial");resglm<-residuals(m2, type="pearson")
+
+RAC<-autocov_dist(resglm, cbind(dat_heron[,1], dat_heron[,2]),
+                  nbs = 50, type = "one", zero.policy = T,
+                  style = "B", longlat=TRUE)
+dat_heron$RAC<-RAC
+
+m3<-glm(PA~chl_log+smt_sqt+yft_juv_03_ave+
+          bty+bet_juv_03_ave+RAC,
+        data=dat_heron, family="binomial")
+
+print(sum((resid(m3, type="pearson")^2))/df.residual(m3))
 print(roc.area(dat_heron$PA, fitted(m3))$A)
 pR2(m3)
 summary(m3)
 
-corm2 <- correlog(dat_heron$Longitude, dat_heron$Latitude, residuals(m2, type="pearson"), na.rm=T,
-                 latlon=T, increment=25,resamp=1)
-corm3 <- correlog(dat_heron$Longitude, dat_heron$Latitude, residuals(m2, type="pearson"), na.rm=T,
-                  latlon=T, increment=25,resamp=1)
+
+corm2 <- spline.correlog(dat_heron$Longitude,
+        dat_heron$Latitude, residuals(m2,
+        type="pearson"), na.rm=T,latlon=T,resamp=10)
+
+corm3 <- spline.correlog(dat_heron$Longitude,
+          dat_heron$Latitude, residuals(m3,
+          type="pearson"), na.rm=T,latlon=T,resamp=10)
+
 
 # get odds
 
@@ -410,9 +457,9 @@ dat_lhi$min.d<-min.d
 hist(dat_lhi$min.d)
 
 plot(Latitude~Longitude, dat_lhi)
-points(Latitude~Longitude, dat_lhi[dat_lhi$min.d>75000,], col=2)
+points(Latitude~Longitude, dat_lhi[dat_lhi$min.d>50000,], col=2)
 
-dat_lhi<-dat_lhi[dat_lhi$min.d<75000,] # remove orphaned points
+dat_lhi<-dat_lhi[dat_lhi$min.d<50000,] # remove orphaned points
 # now have a look at collinearity
 
 #pairs(dat_lhi[,-(1:2)], upper.panel = panel.smooth,lower.panel=panel.cor)
@@ -487,12 +534,12 @@ g1+geom_jitter(height=0.1, size=0.5)+geom_smooth(method="glm", colour=2)+
 
 # We would do bl_cw for each variable individually to see the suitability of a poly
 
-m_lin<-glm(PA~sst,data=dat_lhi, family="binomial")
-m_pol<-glm(PA~poly(sst, 2),data=dat_lhi, family="binomial")
-d1<-data.frame(PA=dat_lhi$PA, sst=dat_lhi$sst, m_lin=fitted(m_lin), m_pol=fitted(m_pol))
-g1<-ggplot(data=d1, aes(y=PA, x=sst))
-g1+geom_jitter(height=0.1, size=0.5)+geom_line(aes(y=m_lin, x=sst), colour=2)+
-  geom_line(aes(y=m_pol, x=sst), colour=3)
+m_lin<-glm(PA~bet_adu_03_ave,data=dat_lhi, family="binomial")
+m_pol<-glm(PA~poly(bet_adu_03_ave, 2),data=dat_lhi, family="binomial")
+d1<-data.frame(PA=dat_lhi$PA, bet_adu_03_ave=dat_lhi$bet_adu_03_ave, m_lin=fitted(m_lin), m_pol=fitted(m_pol))
+g1<-ggplot(data=d1, aes(y=PA, x=bet_adu_03_ave))
+g1+geom_jitter(height=0.1, size=0.5)+geom_line(aes(y=m_lin, x=bet_adu_03_ave), colour=2)+
+  geom_line(aes(y=m_pol, x=bet_adu_03_ave), colour=3)
 anova(m_lin, m_pol)
 #poly model better in the case of skj_juv it gives the 0 to 1 warning so only use linear
 # It was important to work out what was causing the warning: glm.fit: fitted probabilities numerically 0 or 1 occurred
@@ -512,20 +559,37 @@ pairs(dat_lhi[,c(5,9,10,12,13,21 ,24) ], upper.panel = panel.smooth,lower.panel=
 pairs(dat_lhi[,c(5,9,10,12,13 ,24) ], upper.panel = panel.smooth,lower.panel=panel.cor)
 pairs(dat_lhi[,c(9,10,12,13, 23,24) ], upper.panel = panel.smooth,lower.panel=panel.cor)
 
-# chl_log not important
-# TMC better predictor than wind
 
-m2a<-glm(PA~wnd+tmc+chl_log+smt_sqt+bty+bet_adu_03_ave,
+# check which tuna metric best predictor
+
+AIC(glm(PA~skj_adu_03_ave,data=dat_lhi, family="binomial"),
+    glm(PA~skj_juv_03_ave,data=dat_lhi, family="binomial"),
+    glm(PA~bet_adu_03_ave,data=dat_lhi, family="binomial"),
+    glm(PA~bet_juv_03_ave,data=dat_lhi, family="binomial"),
+    glm(PA~yft_adu_03_ave,data=dat_lhi, family="binomial"),
+    glm(PA~yft_juv_03_ave,data=dat_lhi, family="binomial"))
+
+# bet_adu, bet_juv, skj_juv
+
+# see if there are outliers in selected variables
+qplot(data=dat_lhi, x=skj_juv_03_ave, bins=50)+facet_grid(PA~.)
+
+# chl_log not important very, get pushed around by tuna metrics
+
+m2a<-glm(PA~chl_log+smt_sqt+bty+bet_juv_03_ave,
          data=dat_lhi, family="binomial")
-# cant have bty and yft together
-m2b<-glm(PA~tmc+wnd+smt_sqt+yft_adu_03_ave+bet_adu_03_ave,
+
+#  bty and yft are correlated but seem ok together
+m2b<-glm(PA~smt_sqt+bty+bet_juv_03_ave+yft_adu_03_ave,
          data=dat_lhi, family="binomial")
 
-anova(m2a, m2b);AIC(m2a, m2b)
-pR2(m2a)[4];pR2(m2b)[4]
+m2c<-glm(PA~smt_sqt+bty+bet_adu_03_ave,
+         data=dat_lhi, family="binomial")
 
-m2<-glm(PA~wnd+tmc+chl_log+smt_sqt+
-          bty+bet_adu_03_ave,
+anova(m2a, m2b, m2c);AIC(m2a, m2b, m2c)
+pR2(m2a)[4];pR2(m2b)[4];pR2(m2c)[4]
+
+m2<-glm(PA~smt_sqt+bty+bet_juv_03_ave+yft_adu_03_ave,
          data=dat_lhi, family="binomial");resglm<-residuals(m2, type="pearson")
 
 summary(m2)
@@ -545,32 +609,45 @@ bubble(sp2, zcol='resglm')
 #corglm <- correlog(dat_lhi$Longitude, dat_lhi$Latitude, residuals(m2, type="pearson"), na.rm=T,
 #                   latlon=T, increment=25,resamp=1)
 RAC<-autocov_dist(resglm, cbind(dat_lhi[,1], dat_lhi[,2]),
-                  nbs = 75, type = "one", zero.policy = T,
+                  nbs = 50, type = "one", zero.policy = T,
                   style = "B", longlat=TRUE)
-# Model outputs are sensitive to neighborhood distance.
-# here we use 75 kms as happy medium between different
-# variables' resolutions. Remember points are at ~ 10km
-# most variables are at ~25km or 100 resampled at 25.
 
 dat_lhi$RAC<-RAC
 
-m3<-glm(PA~wnd+tmc+chl_log+
-          smt_sqt+bty+
-          bet_adu_03_ave
-          +RAC,
+m3<-glm(PA~smt_sqt+bty+
+          bet_juv_03_ave+yft_adu_03_ave+RAC,
         data=dat_lhi, family="binomial")
 
 plot(m3)
 print(sum((resid(m3, type="pearson")^2))/df.residual(m3))
-resglm<-residuals(m3, type="pearson")
+
+# not too bad overdisp but still some big negative resids
+
+dat_lhi<-dat_lhi[-which(resid(m3, type="pearson")< -10),]
+#refit the model
+
+m2<-glm(PA~smt_sqt+bty+bet_juv_03_ave+yft_adu_03_ave,
+        data=dat_lhi, family="binomial");resglm<-residuals(m2, type="pearson")
+
+RAC<-autocov_dist(resglm, cbind(dat_lhi[,1], dat_lhi[,2]),
+                  nbs = 50, type = "one", zero.policy = T,
+                  style = "B", longlat=TRUE)
+
+dat_lhi$RAC<-RAC
+
+m3<-glm(PA~smt_sqt+bty+
+          bet_juv_03_ave+yft_adu_03_ave+RAC,
+        data=dat_lhi, family="binomial")
+
+print(sum((resid(m3, type="pearson")^2))/df.residual(m3))
 print(roc.area(dat_lhi$PA, fitted(m3))$A)
 pR2(m3)
 summary(m3)
 
-corm2 <- correlog(dat_heron$Longitude, dat_heron$Latitude, residuals(m2, type="pearson"), na.rm=T,
-                  latlon=T, increment=25,resamp=1)
-corm3 <- correlog(dat_heron$Longitude, dat_heron$Latitude, residuals(m2, type="pearson"), na.rm=T,
-                  latlon=T, increment=25,resamp=1)
+corm2 <- spline.correlog(dat_lhi$Longitude, dat_lhi$Latitude, residuals(m2, type="pearson"), na.rm=T,
+                  latlon=T,resamp=10)
+corm3 <- spline.correlog(dat_lhi$Longitude, dat_lhi$Latitude, residuals(m3, type="pearson"), na.rm=T,
+                  latlon=T,resamp=10)
 
 # get odds
 
@@ -579,6 +656,44 @@ exp(cbind(OR = coef(m3), confint(m3)))
 # run dominanace analysis
 
 m3d<-dm2(m3)
+m3d$contribution.average$r2.m
+
+# Save out spac plots
+
+out_spac<-rbind(
+data.frame(dset="heron_m2", Dist=corm2$boot$boot.summary$predicted$x[1,],
+           SPAC_025=corm2$boot$boot.summary$predicted$y[3,],
+           SPAC_Ave=corm2$boot$boot.summary$predicted$y[6,],
+           SPAC_95=corm2$boot$boot.summary$predicted$y[9,]),
+data.frame(dset="heron_m3", Dist=corm3$boot$boot.summary$predicted$x[1,],
+           SPAC_025=corm3$boot$boot.summary$predicted$y[3,],
+           SPAC_Ave=corm3$boot$boot.summary$predicted$y[6,],
+           SPAC_95=corm3$boot$boot.summary$predicted$y[9,]),
+data.frame(dset="lhi_m2", Dist=corm4$boot$boot.summary$predicted$x[1,],
+           SPAC_025=corm4$boot$boot.summary$predicted$y[3,],
+           SPAC_Ave=corm4$boot$boot.summary$predicted$y[6,],
+           SPAC_95=corm4$boot$boot.summary$predicted$y[9,]),
+data.frame(dset="lhi_m3", Dist=corm5$boot$boot.summary$predicted$x[1,],
+           SPAC_025=corm5$boot$boot.summary$predicted$y[3,],
+           SPAC_Ave=corm5$boot$boot.summary$predicted$y[6,],
+           SPAC_95=corm5$boot$boot.summary$predicted$y[9,]))
+
+qplot(data=out_spac, x=Dist, y=SPAC_Ave, colour=dset, geom="line")+
+      geom_ribbon(aes(ymin=SPAC_025, ymax=SPAC_95, fill=dset),alpha=0.25)+theme_classic()
+#sweet
+#write.csv(out_spac, "paper_results/climatology_SPAC_results.csv", quote=F, row.names=F)
+
+##### Making plots #####
+
+# Make boxplots comparing oceanic and tuna covariates between
+# years and colonies.
+
+datv4<-read.csv("spreads/paper2_extractionV4.csv", h=T, strip.white=T)
+# use v4 as has individual years split
+
+pres_all<-datv4[datv4$dtyp=="ud50_pres",]
+
+
 
 
 #! Understanding outputs !#
