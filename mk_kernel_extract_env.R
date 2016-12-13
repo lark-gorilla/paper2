@@ -261,6 +261,39 @@ write.csv(ext_v, "spreads/paper2_extractionV5.csv", quote=F, row.names=F)
 # a good idea to iterate modelling with additional random samples of more or less
 # to see when results stabalise... ie we have sampled the area comprehensivly
 
+# areas of 99% UD: earch area
+
+k1<-readOGR(dsn="/home/mark/grive/phd/analyses/paper2/spatial/LTLHIGPS2014.shp",
+            layer="LTLHIGPS2014")
+
+k2<-readOGR(dsn="/home/mark/grive/phd/analyses/paper2/spatial/LTLHIGPS2015.shp",
+            layer="LTLHIGPS2015")
+
+k3<-readOGR(dsn="/home/mark/grive/phd/analyses/paper2/spatial/LTLHIGPS2016.shp",
+            layer="LTLHIGPS2016")
+
+h1<-readOGR(dsn="/home/mark/grive/phd/analyses/paper2/spatial/LTHeronPTT2011.shp",
+            layer="LTHeronPTT2011")
+
+h2<-readOGR(dsn="/home/mark/grive/phd/analyses/paper2/spatial/LTHeronPTT2013.shp",
+            layer="LTHeronPTT2013")
+
+h3<-readOGR(dsn="/home/mark/grive/phd/analyses/paper2/spatial/LTHeronGPS2015.shp",
+            layer="LTHeronGPS2015")
+
+library(raster)
+# function area can calc to m2 from lat long
+
+area(k1[1,])/1000000
+area(k2[1,])/1000000
+area(k3[1,])/1000000
+area(h1[1,])/1000000
+area(h2[1,])/1000000
+area(h3[1,])/1000000
+
+
+
+
 
 ## attempt at repeatability of kernels
 
@@ -294,7 +327,25 @@ DgProj <- CRS("+proj=laea +lon_0=155 +lat_0=-22")
 
 heron_pols <- spTransform(heron_pols, CRS=DgProj)
 
-gDistance(heron_pols, k2, hausdorff=TRUE)
+library(reshape2)
+haw_test<-rbind(
+data.frame(year="2011-2013",Dists=melt(gDistance(heron_pols[heron_pols$id==2011,],
+                 heron_pols[heron_pols$id==2013,], 
+                 hausdorff=TRUE, byid=TRUE))[,3]),
+data.frame(year="2013-2015",Dists=melt(gDistance(heron_pols[heron_pols$id==2013,],
+                 heron_pols[heron_pols$id==2015,], 
+                 hausdorff=TRUE, byid=TRUE))[,3]),
+data.frame(year="2011-2015",Dists=melt(gDistance(heron_pols[heron_pols$id==2011,],
+                 heron_pols[heron_pols$id==2015,], 
+                 hausdorff=TRUE, byid=TRUE))[,3]))
+
+hist(haw_test$Dists)
+#hist(sqrt(haw_test$Dists))
+qplot(data=haw_test, x=year, y=Dists, geom="boxplot")
+
+haw_test$year<-relevel(haw_test$year, ref="2011-2015")
+m1<-lm(Dists~year, haw_test)
+summary(m1)
 
 
 source("~/grive/phd/scripts/MIBA_scripts_revised/varianceTest_revised.r")
