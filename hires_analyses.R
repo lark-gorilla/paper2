@@ -70,10 +70,10 @@ for (i in 26:42)
 
 #ok cool so not too many NAs if we use the right variables. 
 
-#transformations
-dat$LOGCHL_M<-log(dat$CHL_M)
-dat$LOGCHL_A<-log(dat$CHL_A)
-dat$SQRTsmt<-sqrt(dat$smt)
+#transformations change log to log2 and sqrt to smt/100 e.g. 100km unit change
+dat$LOGCHL_M<-log2(dat$CHL_M)
+dat$LOGCHL_A<-log2(dat$CHL_A)
+dat$smt_100<-dat$smt/100
 
 #collinearity
 mcor<-cor(na.omit(dat[26:39]))
@@ -81,7 +81,7 @@ mcor
 
 library(car)
 vif(lm(1:nrow(dat)~ekmU+modW+SST+ASST+
-         sshHy+bty+SQRTsmt+LOGCHL_A+yftA+yftJ+skjA+skjJ+
+         sshHy+bty+smt_100+LOGCHL_A+yftA+yftJ+skjA+skjJ+
          betA+betJ,data=dat)) # all good
 
 #start modelling
@@ -98,7 +98,7 @@ LHI15<-na.omit(d_mod[d_mod$Colony=="LHI"& d_mod$Year==2015,])
 LHI16<-na.omit(d_mod[d_mod$Colony=="LHI"& d_mod$Year==2016,])
 
 vif(lm(1:nrow(HER15)~ekmU+modW+SST+ASST+
-         sshHy+bty+SQRTsmt+LOGCHL_A+yftA+yftJ+skjA+skjJ+
+         sshHy+bty+smt_100+LOGCHL_A+yftA+yftJ+skjA+skjJ+
          betA+betJ,data=HER15)) 
 
 ## RESAMPLE data to once every 3 points to reduce SPAC to acceptable level
@@ -200,7 +200,7 @@ g1+geom_jitter(height=0.1)+
 #polys for ekm and ssh
 
 he15glmer<-glmer(for_bin~poly(ekmU,2)+modW+ASST+poly(sshHy,2)+
-            SQRTsmt+ yftA + betJ+(1|trip_id), family="binomial", 
+            smt_100+ yftA + betJ+(1|trip_id), family="binomial", 
             data=HER15)
 # throws warning this is due to corr variables and yft being crap
 # can get round by rescaling, in any case YFT could maybe go
@@ -209,13 +209,13 @@ sum((resid(he15glmer, type="pearson")^2))/df.residual(he15glmer)
 
 # test if yft can go
 he15glmer2<-glmer(for_bin~poly(ekmU,2)+modW+ASST+poly(sshHy,2)+
-                   SQRTsmt+ betJ+(1|trip_id), family="binomial", 
+                   smt_100+ betJ+(1|trip_id), family="binomial", 
                  data=HER15)
 
 summary(he15glmer2) # modW looking reversed. due to corr remove
 
 he15glmer3<-glmer(for_bin~poly(ekmU,2)+ASST+poly(sshHy,2)+
-                    SQRTsmt+ betJ+(1|trip_id), family="binomial", 
+                    smt_100+ betJ+(1|trip_id), family="binomial", 
                   data=HER15)
 
 anova(he15glmer,he15glmer2, he15glmer3) # drop it and get rid of wnd
@@ -233,13 +233,13 @@ r.squaredGLMM(he15glmer3)
 #0.3609434 0.4977527 
 
 
-ms1<-model.sel(glmer(for_bin~SQRTsmt+ betJ+(1|trip_id), family="binomial", data=HER15),
+ms1<-model.sel(glmer(for_bin~smt_100+ betJ+(1|trip_id), family="binomial", data=HER15),
           glmer(for_bin~poly(ekmU,2)+ betJ+(1|trip_id), family="binomial", data=HER15),
           glmer(for_bin~modW+betJ+(1|trip_id), family="binomial", data=HER15),
           glmer(for_bin~ASST+betJ+(1|trip_id), family="binomial", data=HER15),
           glmer(for_bin~poly(sshHy,2)+betJ+(1|trip_id), family="binomial", data=HER15),
           glmer(for_bin~betJ+(1|trip_id), family="binomial", data=HER15),
-          glmer(for_bin~SQRTsmt+(1|trip_id), family="binomial", data=HER15),
+          glmer(for_bin~smt_100+(1|trip_id), family="binomial", data=HER15),
           glmer(for_bin~poly(ekmU,2)+(1|trip_id), family="binomial", data=HER15),
           glmer(for_bin~poly(sshHy,2)+(1|trip_id), family="binomial", data=HER15),
           glmer(for_bin~ASST+(1|trip_id), family="binomial", data=HER15),
@@ -342,7 +342,7 @@ g1+geom_jitter(height=0.1)+
 #polys for ekm and ssh
 
 lhi14glmer<-glmer(for_bin~poly(ekmU,2)+modW+poly(ASST,2)+poly(sshHy,2)+
-                   SQRTsmt+ yftJ + LOGCHL_A+ (1|trip_id), family="binomial", 
+                   smt_100+ yftJ + LOGCHL_A+ (1|trip_id), family="binomial", 
                  data=LHI14)
 # throws warning this is due to corr variables and smt being crap
 # can get round by rescaling, in any case modW could maybe go
@@ -351,7 +351,7 @@ sum((resid(lhi14glmer, type="pearson")^2))/df.residual(lhi14glmer)
 
 # We remove modW and refit - still warning 
 lhi14glmer2<-glmer(for_bin~poly(ekmU,2)+poly(ASST, 2)+poly(sshHy,2)+
-                    SQRTsmt+ yftJ + LOGCHL_A+(1|trip_id), family="binomial", 
+                    smt_100+ yftJ + LOGCHL_A+(1|trip_id), family="binomial", 
                   data=LHI14)
 
 # We remove smt and refit - no warning
@@ -476,7 +476,7 @@ g1+geom_jitter(height=0.1)+
 #polys for ekm and ASST, can't have ssh
 
 LHI15glmer<-glmer(for_bin~poly(ekmU,2)+modW+poly(ASST,2)+
-                    SQRTsmt+ skjA+  (1|trip_id), family="binomial", 
+                    smt_100+ skjA+  (1|trip_id), family="binomial", 
                   data=LHI15)
 
 summary(LHI15glmer) # modW looks inflated, probs due to corr
@@ -484,7 +484,7 @@ sum((resid(LHI15glmer, type="pearson")^2))/df.residual(LHI15glmer)
 
 # We remove modW and refit 
 LHI15glmer2<-glmer(for_bin~poly(ekmU,2)+poly(ASST,2)+
-                     SQRTsmt+ skjA+  (1|trip_id), family="binomial", 
+                     smt_100+ skjA+  (1|trip_id), family="binomial", 
                    data=LHI15)
 
 
@@ -493,7 +493,14 @@ summary(LHI15glmer2) # good, smt looks less sig tho
 
 confint(LHI15glmer2, method='boot', nsim=99) # takes ages remove smt and ssh poly
 confint(LHI15glmer2)# no warning
-drop1(LHI15glmer2, test="Chisq") # Asst and ssh's poly?
+drop1(LHI15glmer2, test="Chisq") # sqrt?
+
+#remove smt
+
+LHI15glmer2<-glmer(for_bin~poly(ekmU,2)+poly(ASST,2)+
+                     skjA+  (1|trip_id), family="binomial", 
+                   data=LHI15)
+
 
 # Model details
 
@@ -517,19 +524,19 @@ corm3 <- spline.correlog(LHI15$Longitude,
 #### old
 
 lh14glmer<-glmer(for_bin~ekmU+modW+SST+ASST+sshHy+bty+
-                   SQRTsmt+LOGCHL_A + (1|trip_id), family="binomial", 
+                   smt_100+LOGCHL_A + (1|trip_id), family="binomial", 
                  data=LHI14,na.action=na.omit)
 summary(lh14glmer)
 sum((resid(lh14glmer, type="pearson")^2))/df.residual(lh14glmer)
 
 lh15glmer<-glmer(for_bin~ekmU+modW+SST+ASST+sshHy+bty+
-                   SQRTsmt+LOGCHL_A + (1|trip_id), family="binomial", 
+                   smt_100+LOGCHL_A + (1|trip_id), family="binomial", 
                  data=LHI15,na.action=na.omit)
 summary(lh15glmer)
 sum((resid(lh15glmer, type="pearson")^2))/df.residual(lh15glmer)
 
 lh16glmer<-glmer(for_bin~ekmU+modW+SST+ASST+sshHy+bty+
-                   SQRTsmt+LOGCHL_A + (1|trip_id), family="binomial", 
+                   smt_100+LOGCHL_A + (1|trip_id), family="binomial", 
                  data=LHI16,na.action=na.omit)
 summary(lh16glmer)
 sum((resid(lh16glmer, type="pearson")^2))/df.residual(lh16glmer)
@@ -548,22 +555,22 @@ roc.area(obs=LHI16$for_bin,pred=fitted(lh16glmer))
 
 he15gam<-gam(for_bin~s(ekmU, k=5)+s(modW, k=5)+s(SST, k=5)+s(ASST, k=5)+
                s(sshHy, k=5)+s(bty, k=5)+
-               s(SQRTsmt, k=5)+s(LOGCHL_A, k=5), family="binomial", 
+               s(smt_100, k=5)+s(LOGCHL_A, k=5), family="binomial", 
              data=HER15,na.action=na.omit)
 
 lh14gam<-gam(for_bin~s(ekmU, k=5)+s(modW, k=5)+s(SST, k=5)+s(ASST, k=5)+
                s(sshHy, k=5)+s(bty, k=5)+
-               s(SQRTsmt, k=5)+s(LOGCHL_A, k=5), family="binomial", 
+               s(smt_100, k=5)+s(LOGCHL_A, k=5), family="binomial", 
              data=LHI14,na.action=na.omit)
 
 lh15gam<-gam(for_bin~s(ekmU, k=5)+s(modW, k=5)+s(SST, k=5)+s(ASST, k=5)+
                s(sshHy, k=5)+s(bty, k=5)+
-               s(SQRTsmt, k=5)+s(LOGCHL_A, k=5), family="binomial", 
+               s(smt_100, k=5)+s(LOGCHL_A, k=5), family="binomial", 
              data=LHI15,na.action=na.omit)
 
 lh16gam<-gam(for_bin~s(ekmU, k=5)+s(modW, k=5)+s(SST, k=5)+s(ASST, k=5)+
                s(sshHy, k=5)+s(bty, k=5)+
-               s(SQRTsmt, k=5)+s(LOGCHL_A, k=5), family="binomial", 
+               s(smt_100, k=5)+s(LOGCHL_A, k=5), family="binomial", 
              data=LHI16,na.action=na.omit)
 
 sum((resid(he15gam, type="pearson")^2))/df.residual(he15gam)

@@ -107,8 +107,8 @@ qplot(chl, data=dat);qplot(log(chl), data=dat)
 qplot(smt, data=dat);qplot(sqrt(smt), data=dat)
 
 # Transform variables AFTER naomit!!
-dat$chl_log<-log(dat$chl)
-dat$smt_sqt<-sqrt(dat$smt)
+dat$chl_log<-log2(dat$chl)
+dat$smt_100-dat$smt/100
 # changes BET from g/m2 to kg/km2 (bigger units in model)
 #dat$bet_adu_03_ave<-(dat$bet_adu_03_ave*1000000)/1000 
 
@@ -166,12 +166,12 @@ dat_heron<-dat_heron[dat_heron$min.d<50000,]
 
 
 # now have a look at collinearity
-vif(lm(1:nrow(dat_heron)~sst+shd+ekm+chl_log+wnd+tmc+smt_sqt+bty+bet_adu_03_ave+
+vif(lm(1:nrow(dat_heron)~sst+shd+ekm+chl_log+wnd+tmc+smt_100+bty+bet_adu_03_ave+
          bet_juv_03_ave+bet_tot_03_ave+yft_adu_03_ave+
          yft_juv_03_ave+yft_tot_03_ave+skj_adu_03_ave+
          skj_juv_03_ave+skj_tot_03_ave, data=dat_heron))  
 
-vif(lm(1:nrow(dat_heron)~shd+ekm+chl_log+wnd+tmc+smt_sqt+bty+bet_adu_03_ave+
+vif(lm(1:nrow(dat_heron)~shd+ekm+chl_log+wnd+tmc+smt_100+bty+bet_adu_03_ave+
          bet_juv_03_ave+yft_adu_03_ave+
          skj_adu_03_ave,
        data=dat_heron))
@@ -247,7 +247,7 @@ pairs(dat_heron[,c(9,10,12,13 ,23,24) ], upper.panel = panel.smooth,lower.panel=
 # 
 
 vif(lm(1:nrow(dat_heron)~bet_adu_03_ave+
-        bty+smt_sqt+wnd+sst+chl_log,
+        bty+smt_100+wnd+sst+chl_log,
        data=dat_heron))
 
 # Now we see which variables are better suited to a second deg polynomial
@@ -302,14 +302,14 @@ qplot(data=dat_heron, x=chl_log, bins=50)+facet_grid(PA~.)
 dat_heron<-dat_heron[dat_heron$bet_adu_03_ave<0.012,]
 dat_heron<-dat_heron[dat_heron$chl_log<7,]
 
-m2a<-glm(PA~wnd+chl_log+smt_sqt+bty+tmc,
+m2a<-glm(PA~wnd+chl_log+smt_100+bty+tmc,
   data=dat_heron, family="binomial")
-m2b<-glm(PA~wnd+sst+smt_sqt+bty,
+m2b<-glm(PA~wnd+sst+smt_100+bty,
   data=dat_heron, family="binomial")
 m2c<-glm(PA~skj_adu_03_ave+bet_juv_03_ave+
-           smt_sqt+bty+bet_adu_03_ave,
+           smt_100+bty+bet_adu_03_ave,
          data=dat_heron, family="binomial")
-m2d<-glm(PA~wnd+shd+smt_sqt+bty+tmc,
+m2d<-glm(PA~wnd+shd+smt_100+bty+tmc,
          data=dat_heron, family="binomial")
 
 AIC(m2a, m2b, m2c, m2d)
@@ -318,7 +318,7 @@ AIC(m2a, m2b, m2c, m2d)
 anova(m2a, m2b, m2c);AIC(m2a, m2b, m2c)
 pR2(m2a)[4];pR2(m2b)[4];pR2(m2c)[4]
 
-m2<-glm(PA~chl_log+smt_sqt+yft_juv_03_ave+
+m2<-glm(PA~chl_log+smt_100+yft_juv_03_ave+
           bty+bet_juv_03_ave,
          data=dat_heron, family="binomial");resglm<-residuals(m2, type="pearson")
 
@@ -345,7 +345,7 @@ RAC<-autocov_dist(resglm, cbind(dat_heron[,1], dat_heron[,2]),
 
 dat_heron$RAC<-RAC
 
-m3<-glm(PA~chl_log+smt_sqt+yft_juv_03_ave+
+m3<-glm(PA~chl_log+smt_100+yft_juv_03_ave+
           bty+bet_juv_03_ave+RAC,
         data=dat_heron, family="binomial")
 
@@ -357,7 +357,7 @@ print(sum((resid(m3, type="pearson")^2))/df.residual(m3))
 
 dat_heron<-dat_heron[-which(resid(m3, type="pearson")< -10),]
 
-m2<-glm(PA~chl_log+smt_sqt+yft_juv_03_ave+
+m2<-glm(PA~chl_log+smt_100+yft_juv_03_ave+
           bty+bet_juv_03_ave,
         data=dat_heron, family="binomial");resglm<-residuals(m2, type="pearson")
 
@@ -366,14 +366,15 @@ RAC<-autocov_dist(resglm, cbind(dat_heron[,1], dat_heron[,2]),
                   style = "B", longlat=TRUE)
 dat_heron$RAC<-RAC
 
-m3<-glm(PA~chl_log+smt_sqt+yft_juv_03_ave+
+m3<-glm(PA~chl_log+smt_100+yft_juv_03_ave+
           bty+bet_juv_03_ave+RAC,
         data=dat_heron, family="binomial")
 
+summary(m3)
 print(sum((resid(m3, type="pearson")^2))/df.residual(m3))
 print(roc.area(dat_heron$PA, fitted(m3))$A)
 pR2(m3)
-summary(m3)
+
 
 
 corm2 <- spline.correlog(dat_heron$Longitude,
@@ -521,7 +522,7 @@ pairs(dat_lhi[,c(5,9,12,19,24) ], upper.panel = panel.smooth,lower.panel=panel.c
 
 # 
 vif(lm(1:nrow(dat_lhi)~bet_adu_03_ave+
-         bty+smt_sqt+wnd+chl_log,
+         bty+smt_100+wnd+chl_log,
        data=dat_lhi))
 
 # Now we see which variables are better suited to a second deg polynomial
@@ -576,26 +577,27 @@ qplot(data=dat_lhi, x=skj_juv_03_ave, bins=50)+facet_grid(PA~.)
 
 # chl_log not important very, get pushed around by tuna metrics
 
-m2a<-glm(PA~chl_log+smt_sqt+bty+bet_juv_03_ave,
+m2a<-glm(PA~chl_log+smt_100+bty+bet_juv_03_ave,
          data=dat_lhi, family="binomial")
 
 #  bty and yft are correlated but seem ok together
-m2b<-glm(PA~smt_sqt+bty+bet_juv_03_ave+yft_adu_03_ave,
+m2b<-glm(PA~smt_100+bty+bet_juv_03_ave+yft_adu_03_ave,
          data=dat_lhi, family="binomial")
 
-m2c<-glm(PA~smt_sqt+bty+bet_adu_03_ave,
+m2c<-glm(PA~smt_100+bty+bet_adu_03_ave,
          data=dat_lhi, family="binomial")
 
 anova(m2a, m2b, m2c);AIC(m2a, m2b, m2c)
 pR2(m2a)[4];pR2(m2b)[4];pR2(m2c)[4]
 
-m2<-glm(PA~smt_sqt+bty+bet_juv_03_ave+yft_adu_03_ave,
+m2<-glm(PA~smt_100+bty+bet_juv_03_ave+yft_adu_03_ave,
          data=dat_lhi, family="binomial");resglm<-residuals(m2, type="pearson")
 
 summary(m2)
 
 print(sum((resid(m2, type="pearson")^2))/df.residual(m2))
 print(roc.area(dat_lhi$PA, fitted(m2))$A)
+pR2(m2)
 
 resglm<-residuals(m2, type="pearson")
 sp2<-SpatialPointsDataFrame(dat_lhi[,1:2], data=data.frame(resglm), 
@@ -614,7 +616,7 @@ RAC<-autocov_dist(resglm, cbind(dat_lhi[,1], dat_lhi[,2]),
 
 dat_lhi$RAC<-RAC
 
-m3<-glm(PA~smt_sqt+bty+
+m3<-glm(PA~smt_100+bty+
           bet_juv_03_ave+yft_adu_03_ave+RAC,
         data=dat_lhi, family="binomial")
 
@@ -626,7 +628,7 @@ print(sum((resid(m3, type="pearson")^2))/df.residual(m3))
 dat_lhi<-dat_lhi[-which(resid(m3, type="pearson")< -10),]
 #refit the model
 
-m2<-glm(PA~smt_sqt+bty+bet_juv_03_ave+yft_adu_03_ave,
+m2<-glm(PA~smt_100+bty+bet_juv_03_ave+yft_adu_03_ave,
         data=dat_lhi, family="binomial");resglm<-residuals(m2, type="pearson")
 
 RAC<-autocov_dist(resglm, cbind(dat_lhi[,1], dat_lhi[,2]),
@@ -635,14 +637,15 @@ RAC<-autocov_dist(resglm, cbind(dat_lhi[,1], dat_lhi[,2]),
 
 dat_lhi$RAC<-RAC
 
-m3<-glm(PA~smt_sqt+bty+
+m3<-glm(PA~smt_100+bty+
           bet_juv_03_ave+yft_adu_03_ave+RAC,
         data=dat_lhi, family="binomial")
 
+summary(m3)
 print(sum((resid(m3, type="pearson")^2))/df.residual(m3))
 print(roc.area(dat_lhi$PA, fitted(m3))$A)
 pR2(m3)
-summary(m3)
+
 
 corm2 <- spline.correlog(dat_lhi$Longitude, dat_lhi$Latitude, residuals(m2, type="pearson"), na.rm=T,
                   latlon=T,resamp=10)
@@ -702,7 +705,7 @@ pres_all<-datv4[datv4$dtyp=="ud50_pres",]
 # this means that the coefficients are scaled correctly and more interpretable.
 
 m3_interp<-glm(PA~chl_log+wnd+
-                 smt_sqt+poly(bty,2, raw=T)+
+                 smt_100+poly(bty,2, raw=T)+
                  bet_adu_03_ave+
                  +sst+RAC,
                data=dat_heron, family="binomial")
@@ -761,7 +764,7 @@ plogis(coef(m3))
 # are clearer.
 
 names(model.frame(m3)) # running on m2!
-for (i in c("chl_log", "sst","wnd","tmc","smt_sqt",               
+for (i in c("chl_log", "sst","wnd","tmc","smt_100",               
             "bty","bet_adu_03_ave","RAC"))
 {
   temp<-dat_lhi[1,-4]
@@ -806,7 +809,7 @@ w <- nb2listw(nb,style="B",zero.policy=T)
 plot(sp1, col = "grey60")
 plot(w, coordinates(sp1), pch = 19, cex = 0.3, add = TRUE)
 
-me.fit<-ME(PA~shd+ekm+chl_log+wnd+tmc+smt_sqt+bty+
+me.fit<-ME(PA~shd+ekm+chl_log+wnd+tmc+smt_100+bty+
              bet_juv_03_ave+yft_adu_03_ave+
              skj_juv_03_ave, data=dat_heron, 
            family=binomial, listw = dat.wt4, verbose=T,alpha=0.05 )
