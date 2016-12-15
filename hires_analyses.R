@@ -71,9 +71,11 @@ for (i in 26:42)
 #ok cool so not too many NAs if we use the right variables. 
 
 #transformations change log to log2 and sqrt to smt/100 e.g. 100km unit change
+# log trans of chl really isnt needed. only smt rescale to appease lme4
 dat$LOGCHL_M<-log2(dat$CHL_M)
 dat$LOGCHL_A<-log2(dat$CHL_A)
 dat$smt_100<-dat$smt/100
+dat$ekmU<-dat$ekmU*((60*60)*24) # change ekm m s-1 to m day-1
 
 #collinearity
 mcor<-cor(na.omit(dat[26:39]))
@@ -91,14 +93,14 @@ dat[dat$HMMstates!=3,]$for_bin<-1
 
 #setup NA removed col year datasets
 # Very important to remove NA prior to modelling
-d_mod<-dat[,c(6,20,16,23,30,31,36:42,44:46,50:52, 4, 5)]
+d_mod<-dat[,c(6,20,16,23,30,31,36:42,44:46,48,51:52, 4, 5)]
 HER15<-na.omit(d_mod[d_mod$Colony=="Heron",])
 LHI14<-na.omit(d_mod[d_mod$Colony=="LHI" & d_mod$Year==2014,])
 LHI15<-na.omit(d_mod[d_mod$Colony=="LHI"& d_mod$Year==2015,])
 LHI16<-na.omit(d_mod[d_mod$Colony=="LHI"& d_mod$Year==2016,])
 
 vif(lm(1:nrow(HER15)~ekmU+modW+SST+ASST+
-         sshHy+bty+smt_100+LOGCHL_A+yftA+yftJ+skjA+skjJ+
+         sshHy+bty+smt_100+CHL_A+yftA+yftJ+skjA+skjJ+
          betA+betJ,data=HER15)) 
 
 ## RESAMPLE data to once every 3 points to reduce SPAC to acceptable level
@@ -225,7 +227,7 @@ drop1(he15glmer2, test="Chisq") # no others
 # Model details
 
 sum((resid(he15glmer3, type="pearson")^2))/df.residual(he15glmer3)
-#1.023228
+# 1.046503
 summary(he15glmer3)
 roc.area(obs=HER15$for_bin,pred=fitted(he15glmer3)) #0.8
 r.squaredGLMM(he15glmer3)
@@ -323,9 +325,9 @@ pairs(LHI14[,c(5:7,9, 13, 14,16,17,18)], upper.panel = panel.smooth,lower.panel=
 # not bad, try without modW 
 
 
-qplot(data=LHI14, x=LOGCHL_A, bins=50)+facet_grid(for_bin~.)
+qplot(data=LHI14, x=CHL_A, bins=50)+facet_grid(for_bin~.)
 # remove CHL outliers
-LHI14<-LHI14[which(LHI14$LOGCHL_A< -2),]
+LHI14<-LHI14[which(LHI14$CHL_A< -2),]
 
 # Easier to rescale variables after analysis
 #bet_juvenil_potential_biomass
@@ -342,7 +344,7 @@ g1+geom_jitter(height=0.1)+
 #polys for ekm and ssh
 
 lhi14glmer<-glmer(for_bin~poly(ekmU,2)+modW+poly(ASST,2)+poly(sshHy,2)+
-                   smt_100+ yftJ + LOGCHL_A+ (1|trip_id), family="binomial", 
+                   smt_100+ yftJ + CHL_A+ (1|trip_id), family="binomial", 
                  data=LHI14)
 # throws warning this is due to corr variables and smt being crap
 # can get round by rescaling, in any case modW could maybe go
@@ -351,12 +353,12 @@ sum((resid(lhi14glmer, type="pearson")^2))/df.residual(lhi14glmer)
 
 # We remove modW and refit - still warning 
 lhi14glmer2<-glmer(for_bin~poly(ekmU,2)+poly(ASST, 2)+poly(sshHy,2)+
-                    smt_100+ yftJ + LOGCHL_A+(1|trip_id), family="binomial", 
+                    smt_100+ yftJ + CHL_A+(1|trip_id), family="binomial", 
                   data=LHI14)
 
 # We remove smt and refit - no warning
 lhi14glmer3<-glmer(for_bin~poly(ekmU,2)+poly(ASST,2)+poly(sshHy,2)+
-                    yftJ + LOGCHL_A+(1|trip_id), family="binomial", 
+                    yftJ + CHL_A+(1|trip_id), family="binomial", 
                    data=LHI14)
 
 anova(lhi14glmer,lhi14glmer2, lhi14glmer3) # good to drop modW and smt
@@ -367,13 +369,13 @@ confint(lhi14glmer2)# no warning
 drop1(lhi14glmer3, test="Chisq") # Asst and ssh's poly?
 
 lhi14glmer3a<-glmer(for_bin~poly(ekmU,2)+ASST+poly(sshHy,2)+
-                     yftJ + LOGCHL_A+(1|trip_id), family="binomial", 
+                     yftJ + CHL_A+(1|trip_id), family="binomial", 
                    data=LHI14)
 lhi14glmer3b<-glmer(for_bin~poly(ekmU,2)+poly(ASST,2)+sshHy+
-                      yftJ + LOGCHL_A+(1|trip_id), family="binomial", 
+                      yftJ + CHL_A+(1|trip_id), family="binomial", 
                     data=LHI14)
 lhi14glmer3c<-glmer(for_bin~poly(ekmU,2)+ASST+sshHy+
-                      yftJ + LOGCHL_A+(1|trip_id), family="binomial", 
+                      yftJ + CHL_A+(1|trip_id), family="binomial", 
                     data=LHI14)
 
 anova(lhi14glmer3,lhi14glmer3a, lhi14glmer3b, lhi14glmer3c) 
@@ -381,9 +383,10 @@ anova(lhi14glmer3,lhi14glmer3a, lhi14glmer3b, lhi14glmer3c)
 lhi14glmer3<-lhi14glmer3c
 # Model details
 
-sum((resid(lhi14glmer3, type="pearson")^2))/df.residual(lhi14glmer3)
-# 0.9804307
 summary(lhi14glmer3)
+sum((resid(lhi14glmer3, type="pearson")^2))/df.residual(lhi14glmer3)
+# 0.9751351
+
 roc.area(obs=LHI14$for_bin,pred=fitted(lhi14glmer3)) #0.73
 r.squaredGLMM(lhi14glmer3)
 #R2m       R2c 
@@ -518,7 +521,141 @@ corm3 <- spline.correlog(LHI15$Longitude,
                          na.rm=T, latlon=T,resamp=1)
 
 
+# visualisation
+dat1<-HER15
+m1<-he15glmer3 # lhi14glmer3 # he15glmer3
 
+out_pred<-NULL
+for (i in c("CHL_A", "ekmU","sshHy","ASST",               
+            "smt_100","betJ","skjA", "yftJ"))
+{
+  temp<-dat1[1,5:20]
+  temp[1,]<-as.numeric(apply(dat1[,5:20], 2,median))
+  
+  heron_pred<-data.frame(varib=seq(min(dat1[,which(names(dat1)==i)]),
+                                   max(dat1[,which(names(dat1)==i)]),
+                                   length.out=nrow(dat1)), temp)
+  names(heron_pred)[names(heron_pred)==i]<-"nope"
+  names(heron_pred)[names(heron_pred)=="varib"]<-i
+  
+  p1<-predict(m1, newdata=heron_pred, type="link", re.form=~0)
+  
+  predmat <- model.matrix(terms(m1), data=heron_pred) # need to put terms arguement not just model, RE carried over otherwise?
+  vcv <- vcov(m1)
+  ## then calculate the standard errors
+  semod <-  sqrt(diag(predmat%*%vcv%*%t(predmat))) #M: creates matrix and takes the diagonal
+  # then we can get the confidence intervals @ 95% confidence level
+  ucl <- p1 + semod*1.96
+  lcl <- p1 - semod*1.96
+  
+  d1<-data.frame(env=i, for_bin=dat1$for_bin, raw_varib=dat1[,which(names(dat1)==i)], varib=heron_pred[,1], pred=p1, uci=ucl, lci=lcl)
+  out_pred<-rbind(out_pred, d1)
+  print(i)
+}
+
+library(gridExtra)
+# heron 2015
+
+plotekmU<-ggplot(data=out_pred[out_pred$env=="ekmU",])+
+  geom_density(aes(x=raw_varib, (..scaled..)/2, fill=factor(for_bin),
+  linetype=factor(for_bin)), position="identity")+
+  geom_line(aes(x=varib, y=plogis(pred)),size=1)+
+  geom_line(aes(x=varib, y=plogis(lci)), linetype="dotdash")+
+  geom_line(aes(x=varib, y=plogis(uci)), linetype="dotdash")+
+  scale_y_continuous(breaks=c(0,0.25, 0.5, 0.75, 1))+ 
+  scale_fill_manual(values = c("dark grey", "NA")) +
+  scale_linetype_manual(values=c(0,1))+theme(legend.position=0)+
+  ylab("Probability of foraging")  + 
+  xlab(expression("Ekman upwelling"~(m~day^{-1})))+
+  theme_classic()+theme(legend.position=0)  
+
+plotsshHy<-ggplot(data=out_pred[out_pred$env=="sshHy",])+
+  geom_density(aes(x=raw_varib, (..scaled..)/2, fill=factor(for_bin),
+  linetype=factor(for_bin)), position="identity")+
+  geom_line(aes(x=varib, y=plogis(pred)),size=1)+
+  geom_line(aes(x=varib, y=plogis(lci)), linetype="dotdash")+
+  geom_line(aes(x=varib, y=plogis(uci)), linetype="dotdash")+
+  scale_y_continuous(breaks=c(0,0.25, 0.5, 0.75, 1))+ 
+  scale_fill_manual(values = c("dark grey", "NA")) +
+  scale_linetype_manual(values=c(0,1))+theme(legend.position=0)+
+  ylab("Probability of foraging")  + 
+  xlab("Sea surface height anomaly (m)")+
+  theme_classic()+theme(legend.position=0)  
+
+plotASST<-ggplot(data=out_pred[out_pred$env=="ASST",])+
+  geom_density(aes(x=raw_varib, (..scaled..)/2, fill=factor(for_bin),
+  linetype=factor(for_bin)), position="identity")+
+  geom_line(aes(x=varib, y=plogis(pred)),size=1)+
+  geom_line(aes(x=varib, y=plogis(lci)), linetype="dotdash")+
+  geom_line(aes(x=varib, y=plogis(uci)), linetype="dotdash")+
+  scale_y_continuous(breaks=c(0,0.25, 0.5, 0.75, 1))+ 
+  scale_fill_manual(values = c("dark grey", "NA")) +
+  scale_linetype_manual(values=c(0,1))+theme(legend.position=0)+
+  ylab("Probability of foraging")  + 
+  xlab(expression( paste("Sea surface temperature anomaly (", degree~C, " )")))+
+  theme_classic()+theme(legend.position=0) 
+
+plotsmt<-ggplot(data=out_pred[out_pred$env=="smt_100",])+
+  geom_density(aes(x=raw_varib*100, (..scaled..)/2, fill=factor(for_bin),
+  linetype=factor(for_bin)), position="identity")+
+  geom_line(aes(x=varib*100, y=plogis(pred)),size=1)+
+  geom_line(aes(x=varib*100, y=plogis(lci)), linetype="dotdash")+
+  geom_line(aes(x=varib*100, y=plogis(uci)), linetype="dotdash")+
+  scale_y_continuous(breaks=c(0,0.25, 0.5, 0.75, 1))+ 
+  scale_fill_manual(values = c("dark grey", "NA")) +
+  scale_linetype_manual(values=c(0,1))+theme(legend.position=0)+
+  ylab("Probability of foraging")  + 
+  xlab("Distance to seamount (km)")+
+  theme_classic()+theme(legend.position=0) 
+
+plotbetJ<-ggplot(data=out_pred[out_pred$env=="betJ",])+
+  geom_density(aes(x=raw_varib, (..scaled..)/2, fill=factor(for_bin),
+  linetype=factor(for_bin)), position="identity")+
+  geom_line(aes(x=varib, y=plogis(pred)),size=1)+
+  geom_line(aes(x=varib, y=plogis(lci)), linetype="dotdash")+
+  geom_line(aes(x=varib, y=plogis(uci)), linetype="dotdash")+
+  scale_y_continuous(breaks=c(0,0.25, 0.5, 0.75, 1))+ 
+  scale_fill_manual(values = c("dark grey", "NA")) +
+  scale_linetype_manual(values=c(0,1))+theme(legend.position=0)+
+  ylab("Probability of foraging")  + 
+  xlab(expression("Juvenile Bigeye tuna biomass"~(g~m^{2})))+
+  theme_classic()+theme(legend.position=0) 
+
+grid.arrange( plotekmU, plotsshHy, plotASST,plotsmt, plotbetJ, ncol=3,nrow=2)
+
+
+png("D:/BIRDLIFE/miller_et_al/results/habitat_pref_response_plots_obsRE_3varib.png", width = 9, height =6 , units ="in", res =600)
+
+grid.arrange( pred_dcol, pred_dkuro, pred_mn, widths = c(1,1), ncol=3,nrow=1)
+
+dev.off()
+
+ggplot(data=out_pred[out_pred$env=="betJ",])+
+  geom_density(aes(x=raw_varib, (..scaled..)/2, fill=factor(for_bin),
+  linetype=factor(for_bin)), position="identity")+
+ geom_line(aes(x=varib, y=plogis(pred)),size=1)+
+ geom_line(aes(x=varib, y=plogis(lci)), linetype="dotdash")+
+ geom_line(aes(x=varib, y=plogis(uci)), linetype="dotdash")+
+ scale_y_continuous(breaks=c(0,0.25, 0.5, 0.75, 1))+ 
+  ylab("Probability of foraging")  + 
+ xlab(expression("Juvenile Bigeye tuna biomass"~(g~m^{2}))) +
+  theme_classic() +
+  scale_fill_manual(values = c("dark grey", "NA")) +
+  scale_linetype_manual(values=c(0,1))+theme(legend.position=0)
+
+
+g1<-ggplot(data=out_pred[out_pred$env=="betJ",], aes(y=plogis(pred)))
+g1+geom_jitter(aes(y=for_bin, x=raw_varib),height=0.1, size=0.5)+
+geom_smooth(aes(x=varib),stat="identity",colour=2)+
+geom_ribbon(aes(x=varib, ymin=plogis(lci), ymax=plogis(uci)), alpha=0.5)+
+facet_wrap(~env, scales="free")
+
+g1<-ggplot(data=out_pred)
+g1+geom_density(aes(x=raw_varib, ..scaled..), fill="grey", linetype=0)+
+   geom_line(aes(x=varib, y=plogis(pred)),size=1)+
+  geom_line(aes(x=varib, y=plogis(lci)), linetype="dotted")+
+  geom_line(aes(x=varib, y=plogis(uci)), linetype="dotted")+
+  facet_wrap(~env, scales="free")
 
 
 #### old
