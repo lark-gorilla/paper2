@@ -299,8 +299,7 @@ pairs(dat_heron[,c(9,12,13, 23,24) ], upper.panel = panel.smooth,lower.panel=pan
 #outlers again
 qplot(data=dat_heron, x=chl_log, bins=50)+facet_grid(PA~.)
 
-dat_heron<-dat_heron[dat_heron$bet_adu_03_ave<0.012,]
-dat_heron<-dat_heron[dat_heron$chl_log<7,]
+#dat_heron<-dat_heron[dat_heron$chl<1000,] # 
 
 m2a<-glm(PA~wnd+chl_log+smt_100+bty+tmc,
   data=dat_heron, family="binomial")
@@ -318,7 +317,7 @@ AIC(m2a, m2b, m2c, m2d)
 anova(m2a, m2b, m2c);AIC(m2a, m2b, m2c)
 pR2(m2a)[4];pR2(m2b)[4];pR2(m2c)[4]
 
-m2<-glm(PA~chl_log+smt_100+yft_juv_03_ave+
+m2<-glm(PA~chl+smt_100+yft_juv_03_ave+
           bty+bet_juv_03_ave,
          data=dat_heron, family="binomial");resglm<-residuals(m2, type="pearson")
 
@@ -345,7 +344,7 @@ RAC<-autocov_dist(resglm, cbind(dat_heron[,1], dat_heron[,2]),
 
 dat_heron$RAC<-RAC
 
-m3<-glm(PA~chl_log+smt_100+yft_juv_03_ave+
+m3<-glm(PA~chl+smt_100+yft_juv_03_ave+
           bty+bet_juv_03_ave+RAC,
         data=dat_heron, family="binomial")
 
@@ -357,7 +356,7 @@ print(sum((resid(m3, type="pearson")^2))/df.residual(m3))
 
 dat_heron<-dat_heron[-which(resid(m3, type="pearson")< -10),]
 
-m2<-glm(PA~chl_log+smt_100+yft_juv_03_ave+
+m2<-glm(PA~chl+smt_100+yft_juv_03_ave+
           bty+bet_juv_03_ave,
         data=dat_heron, family="binomial");resglm<-residuals(m2, type="pearson")
 
@@ -366,7 +365,7 @@ RAC<-autocov_dist(resglm, cbind(dat_heron[,1], dat_heron[,2]),
                   style = "B", longlat=TRUE)
 dat_heron$RAC<-RAC
 
-m3<-glm(PA~chl_log+smt_100+yft_juv_03_ave+
+m3<-glm(PA~chl+smt_100+yft_juv_03_ave+
           bty+bet_juv_03_ave+RAC,
         data=dat_heron, family="binomial")
 

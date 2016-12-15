@@ -10,7 +10,7 @@ library("curl")
 
 #http://coastwatch.pfeg.noaa.gov/coastwatch/CWBrowserWW360.jsp?get=gridData&dataSet=TNCwwww&timePeriod=1month&centeredTime=1995-12-30T00:00:00&minLon=0&maxLon=360&minLat=-90&maxLat=90&fileType=.nc
 #http://coastwatch.pfeg.noaa.gov/coastwatch/CWBrowserWW360.jsp?get=gridData&dataSet=CPCsstn&timePeriod=monthly&centeredTime=0001-12-16T12:00:00&minLon=0&maxLon=360&minLat=-90&maxLat=90&fileType=.nc
-#http://coastwatch.pfeg.noaa.gov/coastwatch/CWBrowserWW360.jThe Changjiang River discharge affects the distribution of foraging seabirdssp?get=gridData&dataSet=CTCsshd&timePeriod=monthly&centeredTime=0001-12-16T12:00:00&minLon=0&maxLon=360&minLat=-90&maxLat=90&fileType=.nc
+#http://coastwatch.pfeg.noaa.gov/coastwatch/CWBrowserWW360.jsp?get=gridData&dataSet=CTCsshd&timePeriod=monthly&centeredTime=0001-12-16T12:00:00&minLon=0&maxLon=360&minLat=-90&maxLat=90&fileType=.nc
 #http://coastwatch.pfeg.noaa.gov/coastwatch/CWBrowserWW360.jsp?get=gridData&dataSet=CQCwekm&timePeriod=monthly&centeredTime=0001-12-16T12:00:00&minLon=0&maxLon=360&minLat=-90&maxLat=90&fileType=.nc
 #http://coastwatch.pfeg.noaa.gov/coastwatch/CWBrowserWW360.jsp?get=gridData&dataSet=CPMbfp1&timePeriod=monthly&centeredTime=0001-12-16T12:00:00&minLon=0&maxLon=360&minLat=-90&maxLat=90&fileType=.nc
 
