@@ -222,7 +222,7 @@ he15glmer3<-glmer(for_bin~poly(ekmU,2)+ASST+poly(sshHy,2)+
 
 anova(he15glmer,he15glmer2, he15glmer3) # drop it and get rid of wnd
 confint(he15glmer3, method='boot', nsim=99) # takes ages
-drop1(he15glmer2, test="Chisq") # no others
+drop1(he15glmer3, test="Chisq") # no others
 
 # Model details
 
@@ -327,7 +327,7 @@ pairs(LHI14[,c(5:7,9, 13, 14,16,17,18)], upper.panel = panel.smooth,lower.panel=
 
 qplot(data=LHI14, x=CHL_A, bins=50)+facet_grid(for_bin~.)
 # remove CHL outliers
-LHI14<-LHI14[which(LHI14$CHL_A< -2),]
+#LHI14<-LHI14[which(LHI14$CHL_A< -2),] none anyway
 
 # Easier to rescale variables after analysis
 #bet_juvenil_potential_biomass
@@ -392,6 +392,8 @@ r.squaredGLMM(lhi14glmer3)
 #R2m       R2c 
 #0.1492239 0.2851388   
 
+drop1(lhi14glmer3, test="Chisq")
+
 # check spatial autocorr of final model, should be fine due to 1:3 point resample
 corm3 <- spline.correlog(LHI14$Longitude,
                          LHI14$Latitude, residuals(lhi14glmer3, type="pearson"), 
@@ -399,7 +401,7 @@ corm3 <- spline.correlog(LHI14$Longitude,
 
 #**** ^^^%%%% %%%^^^ *****#
 
-#**** ^^^%%%% LHI 2014 %%%^^^ *****#
+#**** ^^^%%%% LHI 2015 %%%^^^ *****#
 # corr
 pairs(LHI15[,5:18 ], upper.panel = panel.smooth,lower.panel=panel.cor)
 # outliers, in tuna data especially
@@ -441,7 +443,7 @@ d1<-melt(LHI15, id.vars=c("for_bin","trip_id", "Colony", "Year"))
 g1<-ggplot(data=d1, aes(x=value))
 g1+geom_histogram()+facet_wrap(~variable, scale="free")
 # look to remove outliers
-#LHI15<-LHI15[-which(LHI15$skjA>0.1),]
+#LHI15<-LHI15[-which(LHI15$skjA>0.1),]yftJyftJ
 d1<-melt(LHI15, id.vars=c("for_bin","trip_id", "Colony", "Year", "Month"))
 g1<-ggplot(data=d1, aes(x=value))
 g1+geom_histogram()+facet_wrap(~variable, scale="free")
@@ -515,6 +517,8 @@ r.squaredGLMM(LHI15glmer2)
 #R2m       R2c 
 #0.2965124 0.5212758  
 
+drop1(LHI15glmer2, test="Chisq")
+
 # check spatial autocorr of final model, should be fine due to 1:3 point resample
 corm3 <- spline.correlog(LHI15$Longitude,
                          LHI15$Latitude, residuals(LHI15glmer2, type="pearson"), 
@@ -523,7 +527,8 @@ corm3 <- spline.correlog(LHI15$Longitude,
 
 # visualisation
 dat1<-HER15
-m1<-he15glmer3 # lhi14glmer3 # he15glmer3
+m1<-he15glmer3 # lhi14glmer3 # LHI15glmer2 #he15glmer3
+# each time rbind
 
 out_pred<-NULL
 for (i in c("CHL_A", "ekmU","sshHy","ASST",               
@@ -553,82 +558,272 @@ for (i in c("CHL_A", "ekmU","sshHy","ASST",
   print(i)
 }
 
+he1<-data.frame(out_pred, colony="Heron15")
+lh1<-data.frame(out_pred, colony="LHI14")
+lh2<-data.frame(out_pred, colony="LHI15")
+
+out_pred<-rbind(he1, lh1, lh2)
+
+
 library(gridExtra)
+
 # heron 2015
 
-plotekmU<-ggplot(data=out_pred[out_pred$env=="ekmU",])+
+plotekmU_he15<-ggplot(data=out_pred[out_pred$colony=="Heron15" & out_pred$env=="ekmU",])+
   geom_density(aes(x=raw_varib, (..scaled..)/2, fill=factor(for_bin),
   linetype=factor(for_bin)), position="identity")+
   geom_line(aes(x=varib, y=plogis(pred)),size=1)+
   geom_line(aes(x=varib, y=plogis(lci)), linetype="dotdash")+
   geom_line(aes(x=varib, y=plogis(uci)), linetype="dotdash")+
-  scale_y_continuous(breaks=c(0,0.25, 0.5, 0.75, 1))+ 
+  scale_y_continuous(breaks=c(0,0.25, 0.5, 0.75, 1), limits=c(0,1))+ 
   scale_fill_manual(values = c("dark grey", "NA")) +
   scale_linetype_manual(values=c(0,1))+theme(legend.position=0)+
   ylab("Probability of foraging")  + 
   xlab(expression("Ekman upwelling"~(m~day^{-1})))+
   theme_classic()+theme(legend.position=0)  
 
-plotsshHy<-ggplot(data=out_pred[out_pred$env=="sshHy",])+
+plotsshHy_he15<-ggplot(data=out_pred[out_pred$colony=="Heron15" & out_pred$env=="sshHy",])+
   geom_density(aes(x=raw_varib, (..scaled..)/2, fill=factor(for_bin),
   linetype=factor(for_bin)), position="identity")+
   geom_line(aes(x=varib, y=plogis(pred)),size=1)+
   geom_line(aes(x=varib, y=plogis(lci)), linetype="dotdash")+
   geom_line(aes(x=varib, y=plogis(uci)), linetype="dotdash")+
-  scale_y_continuous(breaks=c(0,0.25, 0.5, 0.75, 1))+ 
+  scale_y_continuous(breaks=c(0,0.25, 0.5, 0.75, 1), limits=c(0,1))+ 
   scale_fill_manual(values = c("dark grey", "NA")) +
   scale_linetype_manual(values=c(0,1))+theme(legend.position=0)+
   ylab("Probability of foraging")  + 
   xlab("Sea surface height anomaly (m)")+
   theme_classic()+theme(legend.position=0)  
 
-plotASST<-ggplot(data=out_pred[out_pred$env=="ASST",])+
+plotASST_he15<-ggplot(data=out_pred[out_pred$colony=="Heron15" & out_pred$env=="ASST",])+
   geom_density(aes(x=raw_varib, (..scaled..)/2, fill=factor(for_bin),
   linetype=factor(for_bin)), position="identity")+
   geom_line(aes(x=varib, y=plogis(pred)),size=1)+
   geom_line(aes(x=varib, y=plogis(lci)), linetype="dotdash")+
   geom_line(aes(x=varib, y=plogis(uci)), linetype="dotdash")+
-  scale_y_continuous(breaks=c(0,0.25, 0.5, 0.75, 1))+ 
+  scale_y_continuous(breaks=c(0,0.25, 0.5, 0.75, 1), limits=c(0,1))+ 
   scale_fill_manual(values = c("dark grey", "NA")) +
   scale_linetype_manual(values=c(0,1))+theme(legend.position=0)+
   ylab("Probability of foraging")  + 
-  xlab(expression( paste("Sea surface temperature anomaly (", degree~C, " )")))+
+  xlab(expression( paste("Sea surface temp. anomaly (", degree~C, " )")))+
   theme_classic()+theme(legend.position=0) 
 
-plotsmt<-ggplot(data=out_pred[out_pred$env=="smt_100",])+
+plotsmt_he15<-ggplot(data=out_pred[out_pred$colony=="Heron15" & out_pred$env=="smt_100",])+
   geom_density(aes(x=raw_varib*100, (..scaled..)/2, fill=factor(for_bin),
   linetype=factor(for_bin)), position="identity")+
   geom_line(aes(x=varib*100, y=plogis(pred)),size=1)+
   geom_line(aes(x=varib*100, y=plogis(lci)), linetype="dotdash")+
   geom_line(aes(x=varib*100, y=plogis(uci)), linetype="dotdash")+
-  scale_y_continuous(breaks=c(0,0.25, 0.5, 0.75, 1))+ 
+  scale_y_continuous(breaks=c(0,0.25, 0.5, 0.75, 1), limits=c(0,1))+ 
   scale_fill_manual(values = c("dark grey", "NA")) +
   scale_linetype_manual(values=c(0,1))+theme(legend.position=0)+
   ylab("Probability of foraging")  + 
   xlab("Distance to seamount (km)")+
   theme_classic()+theme(legend.position=0) 
 
-plotbetJ<-ggplot(data=out_pred[out_pred$env=="betJ",])+
+plotbetJ_he15<-ggplot(data=out_pred[out_pred$colony=="Heron15" & out_pred$env=="betJ",])+
   geom_density(aes(x=raw_varib, (..scaled..)/2, fill=factor(for_bin),
   linetype=factor(for_bin)), position="identity")+
   geom_line(aes(x=varib, y=plogis(pred)),size=1)+
   geom_line(aes(x=varib, y=plogis(lci)), linetype="dotdash")+
   geom_line(aes(x=varib, y=plogis(uci)), linetype="dotdash")+
-  scale_y_continuous(breaks=c(0,0.25, 0.5, 0.75, 1))+ 
+  scale_y_continuous(breaks=c(0,0.25, 0.5, 0.75, 1), limits=c(0,1))+ 
   scale_fill_manual(values = c("dark grey", "NA")) +
   scale_linetype_manual(values=c(0,1))+theme(legend.position=0)+
   ylab("Probability of foraging")  + 
-  xlab(expression("Juvenile Bigeye tuna biomass"~(g~m^{2})))+
+  xlab(expression("Mic. Bigeye tuna biomass"~(g~m^{-2})))+
   theme_classic()+theme(legend.position=0) 
 
 grid.arrange( plotekmU, plotsshHy, plotASST,plotsmt, plotbetJ, ncol=3,nrow=2)
 
 
-png("D:/BIRDLIFE/miller_et_al/results/habitat_pref_response_plots_obsRE_3varib.png", width = 9, height =6 , units ="in", res =600)
+png("paper_plots/heron15_hires.png", width = 9, height =6 , units ="in", res =600)
 
-grid.arrange( pred_dcol, pred_dkuro, pred_mn, widths = c(1,1), ncol=3,nrow=1)
+grid.arrange( plotekmU, plotsshHy, plotASST,plotsmt, plotbetJ, ncol=3,nrow=2)
 
 dev.off()
+
+
+# lhi 2014
+
+plotekmU_lh14<-ggplot(data=out_pred[out_pred$colony=="LHI14" & out_pred$env=="ekmU",])+
+  geom_density(aes(x=raw_varib, (..scaled..)/2, fill=factor(for_bin),
+                   linetype=factor(for_bin)), position="identity")+
+  geom_line(aes(x=varib, y=plogis(pred)),size=1)+
+  geom_line(aes(x=varib, y=plogis(lci)), linetype="dotdash")+
+  geom_line(aes(x=varib, y=plogis(uci)), linetype="dotdash")+
+  scale_y_continuous(breaks=c(0,0.25, 0.5, 0.75, 1), limits=c(0,1))+ 
+  scale_fill_manual(values = c("dark grey", "NA")) +
+  scale_linetype_manual(values=c(0,1))+
+  ylab("Probability of foraging")  + 
+  xlab(expression("Ekman upwelling"~(m~day^{-1})))+
+  theme_classic()+theme(legend.position=0, axis.title.y=element_blank()) 
+
+plotsshHy_lh14<-ggplot(data=out_pred[out_pred$colony=="LHI14" & out_pred$env=="sshHy",])+
+  geom_density(aes(x=raw_varib, (..scaled..)/2, fill=factor(for_bin),
+                   linetype=factor(for_bin)), position="identity")+
+  geom_line(aes(x=varib, y=plogis(pred)),size=1)+
+  geom_line(aes(x=varib, y=plogis(lci)), linetype="dotdash")+
+  geom_line(aes(x=varib, y=plogis(uci)), linetype="dotdash")+
+  scale_y_continuous(breaks=c(0,0.25, 0.5, 0.75, 1), limits=c(0,1))+ 
+  scale_fill_manual(values = c("dark grey", "NA")) +
+  scale_linetype_manual(values=c(0,1))+
+  ylab("Probability of foraging")  + 
+  xlab("Sea surface height anomaly (m)")+
+  theme_classic()+theme(legend.position=0, axis.title.y=element_blank()) 
+
+plotASST_lh14<-ggplot(data=out_pred[out_pred$colony=="LHI14" & out_pred$env=="ASST",])+
+  geom_density(aes(x=raw_varib, (..scaled..)/2, fill=factor(for_bin),
+                   linetype=factor(for_bin)), position="identity")+
+  geom_line(aes(x=varib, y=plogis(pred)),size=1)+
+  geom_line(aes(x=varib, y=plogis(lci)), linetype="dotdash")+
+  geom_line(aes(x=varib, y=plogis(uci)), linetype="dotdash")+
+  scale_y_continuous(breaks=c(0,0.25, 0.5, 0.75, 1), limits=c(0,1))+ 
+  scale_fill_manual(values = c("dark grey", "NA")) +
+  scale_linetype_manual(values=c(0,1))+
+  ylab("Probability of foraging")  + 
+  xlab(expression( paste("Sea surface temp. anomaly (", degree~C, " )")))+
+  theme_classic()+theme(legend.position=0, axis.title.y=element_blank()) 
+
+plotchl_lh14<-ggplot(data=out_pred[out_pred$colony=="LHI14" & out_pred$env=="CHL_A",])+
+  geom_density(aes(x=raw_varib, (..scaled..)/2, fill=factor(for_bin),
+  linetype=factor(for_bin)), position="identity")+
+  geom_line(aes(x=varib, y=plogis(pred)),size=1)+
+  geom_line(aes(x=varib, y=plogis(lci)), linetype="dotdash")+
+  geom_line(aes(x=varib, y=plogis(uci)), linetype="dotdash")+
+  scale_y_continuous(breaks=c(0,0.25, 0.5, 0.75, 1), limits=c(0,1))+ 
+  scale_x_continuous(limits=c(0.06,0.15))+
+  scale_fill_manual(values = c("dark grey", "NA")) +
+  scale_linetype_manual(values=c(0,1))+
+  ylab("Probability of foraging")  + 
+  xlab(expression("Chlorophyll concentration"~(mg~m^{-3})))+
+  theme_classic()+theme(legend.position=0, axis.title.y=element_blank()) 
+
+plotyftJ_lh14<-ggplot(data=out_pred[out_pred$colony=="LHI14" & out_pred$env=="yftJ",])+
+  geom_density(aes(x=raw_varib, (..scaled..)/2, fill=factor(for_bin),
+  linetype=factor(for_bin)), position="identity")+
+  geom_line(aes(x=varib, y=plogis(pred)),size=1)+
+  geom_line(aes(x=varib, y=plogis(lci)), linetype="dotdash")+
+  geom_line(aes(x=varib, y=plogis(uci)), linetype="dotdash")+
+  scale_y_continuous(breaks=c(0,0.25, 0.5, 0.75, 1), limits=c(0,1))+ 
+  scale_fill_manual(values = c("dark grey", "NA")) +
+  scale_linetype_manual(values=c(0,1))+
+  ylab("Probability of foraging")  + 
+  xlab(expression("Mic. Yellowfin tuna biomass"~(g~m^{-2})))+
+  theme_classic()+theme(legend.position=0, axis.title.y=element_blank()) 
+
+grid.arrange( plotekmU, plotsshHy, plotASST,plotchl, plotyftJ, ncol=3,nrow=2)
+
+
+png("paper_plots/lhi14_hires.png", width = 9, height =6 , units ="in", res =600)
+
+grid.arrange( plotekmU, plotsshHy, plotASST,plotchl, plotyftJ, ncol=3,nrow=2)
+
+dev.off()
+
+# LHI 2015
+
+plotekmU_lh15<-ggplot(data=out_pred[out_pred$colony=="LHI15" & out_pred$env=="ekmU",])+
+  geom_density(aes(x=raw_varib, (..scaled..)/2, fill=factor(for_bin),
+  linetype=factor(for_bin)), position="identity")+
+  geom_line(aes(x=varib, y=plogis(pred)),size=1)+
+  geom_line(aes(x=varib, y=plogis(lci)), linetype="dotdash")+
+  geom_line(aes(x=varib, y=plogis(uci)), linetype="dotdash")+
+  scale_y_continuous(breaks=c(0,0.25, 0.5, 0.75, 1), limits=c(0,1))+ 
+  scale_fill_manual(values = c("dark grey", "NA")) +
+  scale_linetype_manual(values=c(0,1))+
+  ylab("Probability of foraging")  + 
+  xlab(expression("Ekman upwelling"~(m~day^{-1})))+
+  theme_classic()+theme(legend.position=0, axis.title.y=element_blank()) 
+
+
+plotASST_lh15<-ggplot(data=out_pred[out_pred$colony=="LHI15" & out_pred$env=="ASST",])+
+  geom_density(aes(x=raw_varib, (..scaled..)/2, fill=factor(for_bin),
+  linetype=factor(for_bin)), position="identity")+
+  geom_line(aes(x=varib, y=plogis(pred)),size=1)+
+  geom_line(aes(x=varib, y=plogis(lci)), linetype="dotdash")+
+  geom_line(aes(x=varib, y=plogis(uci)), linetype="dotdash")+
+  scale_y_continuous(breaks=c(0,0.25, 0.5, 0.75, 1), limits=c(0,1))+ 
+  scale_fill_manual(values = c("dark grey", "NA")) +
+  scale_linetype_manual(values=c(0,1))+
+  ylab("Probability of foraging")  + 
+  xlab(expression( paste("Sea surface temp. anomaly (", degree~C, " )")))+
+  theme_classic()+theme(legend.position=0, axis.title.y=element_blank())
+
+
+plotskjA_lh15<-ggplot(data=out_pred[out_pred$colony=="LHI15" & out_pred$env=="skjA",])+
+  geom_density(aes(x=raw_varib, (..scaled..)/2, fill=factor(for_bin),
+  linetype=factor(for_bin)), position="identity")+
+  geom_line(aes(x=varib, y=plogis(pred)),size=1)+
+  geom_line(aes(x=varib, y=plogis(lci)), linetype="dotdash")+
+  geom_line(aes(x=varib, y=plogis(uci)), linetype="dotdash")+
+  scale_y_continuous(breaks=c(0,0.25, 0.5, 0.75, 1), limits=c(0,1))+ 
+  scale_fill_manual(values = c("dark grey", "NA")) +
+  scale_linetype_manual(values=c(0,1))+
+  ylab("Probability of foraging")  + 
+  xlab(expression("Adult Skipjack tuna biomass"~(g~m^{-2})))+
+  theme_classic()+theme(legend.position=0, axis.title.y=element_blank())
+
+grid.arrange( plotekmU,  plotASST, plotskjA,  ncol=3,nrow=2)
+
+
+png("paper_plots/lhi15_hires.png", width = 9, height =6 , units ="in", res =600)
+
+grid.arrange( plotekmU,  plotASST, plotskjA, ncol=3,nrow=2)
+
+dev.off()
+
+## BIG PLOT WITH ALL
+
+jpeg("paper_plots/hires_all_paper.jpg", width = 8.27, height =11.69 , units ="in", res =300)
+#A4 size
+
+grid.arrange( arrangeGrob(plotekmU_he15, plotASST_he15,plotbetJ_he15,
+              plotsshHy_he15, plotsmt_he15, ncol=1,top=textGrob("Heron Island 2015",x=0.6, y=0.5, gp=gpar(fontsize=16), just="center")),
+              arrangeGrob(plotekmU_lh15,  plotASST_lh15, plotskjA_lh15, 
+              grid.rect(gp=gpar(col="white")),grid.rect(gp=gpar(col="white")),
+              ncol=1, top=textGrob("Lord Howe Island 2015", gp=gpar(fontsize=16),x=0.55, y=0.5, just="center")),
+              arrangeGrob(plotekmU_lh14,  plotASST_lh14,plotyftJ_lh14,
+              plotsshHy_lh14, plotchl_lh14, ncol=1, top=textGrob("Lord Howe Island 2014", gp=gpar(fontsize=16),x=0.55, y=0.5, just="center")),
+              ncol=3)
+
+dev.off()
+
+# earlier attempt
+
+layoutm<-rbind(c(1,7,11),
+               c(2,8,12),
+               c(3,9,13),
+               c(4,10,14),
+               c(5,NA,15),
+               c(6,NA,16))
+
+grid.arrange( textGrob("Heron Island 2015"), 
+              plotekmU_he15, plotASST_he15,plotbetJ_he15,
+              plotsshHy_he15, plotsmt_he15, 
+              textGrob("Lord Howe Island 2015"),
+              plotekmU_lh15,  plotASST_lh15, plotskjA_lh15, 
+              textGrob("Lord Howe Island 2014"),
+              plotekmU_lh14,  plotASST_lh14,plotyftJ_lh14,
+              plotsshHy_lh14, plotchl_lh14, 
+              layout_matrix=layoutm)
+
+
+# different plot
+jpeg("paper_plots/hires_all2.jpg", width = 4.1, height =11.69 , units ="in", res =300)
+#A4 size
+layoutm<-rbind(c(1,2), c(3,4),c(5,6),c(7,8), c(9,10),
+               c(11,12), c(13,14), c(15,16))
+
+grid.arrange( textGrob("Heron Island 2015"), plotekmU_he15, plotsshHy_he15, plotASST_he15,
+              plotsmt_he15, plotbetJ_he15,
+              textGrob("Lord Howe Island 2014"),plotekmU_lh15,  plotASST_lh15, plotskjA_lh15, 
+              textGrob("Lord Howe Island 2015"),plotekmU_lh14, plotsshHy_lh14, plotASST_lh14,
+              plotchl_lh14, plotyftJ_lh14, layout_matrix=layoutm)
+dev.off()
+
+
+
 
 ggplot(data=out_pred[out_pred$env=="betJ",])+
   geom_density(aes(x=raw_varib, (..scaled..)/2, fill=factor(for_bin),
@@ -657,6 +852,106 @@ g1+geom_density(aes(x=raw_varib, ..scaled..), fill="grey", linetype=0)+
   geom_line(aes(x=varib, y=plogis(uci)), linetype="dotted")+
   facet_wrap(~env, scales="free")
 
+
+### PCA figure creation
+
+enviro_std<-decostand(HER15[,c(5,7:18) ], method="standardize")
+# takes all varibs but eke also juv and adu tnua forms
+
+# then do pca (just a scaled RDA)
+enviro_rda<-rda(enviro_std, scale=T)
+summary(enviro_rda, display=NULL)
+screeplot(enviro_rda) # badly scaled
+#full summary
+summary(enviro_rda)
+
+enviro.sites.scores<-as.data.frame(scores(enviro_rda, choices=1:4, display='sites', scaling=1)) 
+# i've put scaling to 1 for the sites to fit better on the plot
+
+# Now make some plots
+enviro.species.scores<-as.data.frame(scores(enviro_rda, display='species'))
+enviro.species.scores$Predictors<-colnames(enviro_std)
+enviro.species.scores$P1<-c("EKM", "SSHA",  "YFT_ADU", "YFT_MIC",
+                            "SKJ_ADU", "SKJ_MIC", "BET_ADU", "BET_MIC",
+                            "BTY", "SST", "SSTA", "CHL", "SMT")
+enviro.species.scores
+
+g<- ggplot()+
+  geom_segment(data=NULL, aes(y=-Inf, x=0, yend=Inf, xend=0), linetype='dotted')+
+  geom_segment(data=NULL, aes(y=0, x=-Inf, yend=0, xend=Inf), linetype='dotted')+
+  #geom_point(data=enviroPCA, aes(y=PC2, x=PC1, shape=treatshape, fill=treatfill),size=3)+scale_shape_identity()+scale_fill_identity()+
+  geom_segment(data=enviro.species.scores, aes(y=0, x=0, yend=PC2, xend=PC1), arrow=arrow(length=unit(0.3,'lines')), colour='black')+theme_classic() 
+g<-g+geom_text_repel(data=enviro.species.scores, aes(y=PC2, x=PC1, label=P1), segment.size=0, colour='black')
+
+eig<-eigenvals(enviro_rda)
+g<- g+scale_y_continuous(paste(names(eig[2]), sprintf('(%0.1f%% explained var.)', 100* eig[2]/sum(eig))))+
+  scale_x_continuous(paste(names(eig[1]), sprintf('(%0.1f%% explained var.)', 100* eig[1]/sum(eig))))
+
+g<-g+geom_text(aes(y=2.65, x=-2, label="A."), size=8)
+
+enviro_lhi<-decostand(LHI15[,c(5,7:18) ], method="standardize")
+
+enviro_lhi<-rda(enviro_lhi, scale=T)
+summary(enviro_lhi, display=NULL)
+summary(enviro_lhi)
+
+enviro.sites.scores<-as.data.frame(scores(enviro_lhi, choices=1:4, display='sites', scaling=1)) 
+enviro.species.scores<-as.data.frame(scores(enviro_lhi, display='species'))
+enviro.species.scores$Predictors<-colnames(enviro_std)
+enviro.species.scores$P1<-c("EKM", "SSHA",  "YFT_ADU", "YFT_MIC",
+                            "SKJ_ADU", "SKJ_MIC", "BET_ADU", "BET_MIC",
+                            "BTY", "SST", "SSTA", "CHL", "SMT")
+enviro.species.scores
+
+g2<- ggplot()+
+  geom_segment(data=NULL, aes(y=-Inf, x=0, yend=Inf, xend=0), linetype='dotted')+
+  geom_segment(data=NULL, aes(y=0, x=-Inf, yend=0, xend=Inf), linetype='dotted')+
+  #geom_point(data=enviroPCA, aes(y=PC2, x=PC1, shape=treatshape, fill=treatfill),size=3)+scale_shape_identity()+scale_fill_identity()+
+  geom_segment(data=enviro.species.scores, aes(y=0, x=0, yend=PC2, xend=PC1), arrow=arrow(length=unit(0.3,'lines')), colour='black')+theme_classic() 
+g2<-g2+geom_text_repel(data=enviro.species.scores, aes(y=PC2, x=PC1, label=P1), segment.size=0, colour='black')
+
+eig<-eigenvals(enviro_lhi)
+g2<- g2+scale_y_continuous(paste(names(eig[2]), sprintf('(%0.1f%% explained var.)', 100* eig[2]/sum(eig))))+
+  scale_x_continuous(paste(names(eig[1]), sprintf('(%0.1f%% explained var.)', 100* eig[1]/sum(eig))))
+
+g2<-g2+geom_text(aes(y=3.3, x=-3.6, label="B."), size=8)
+
+enviro_lhi2<-decostand(LHI14[,c(5,7:18) ], method="standardize")
+
+enviro_lhi2<-rda(enviro_lhi2, scale=T)
+summary(enviro_lhi2, display=NULL)
+summary(enviro_lhi2)
+
+enviro.sites.scores<-as.data.frame(scores(enviro_lhi2, choices=1:4, display='sites', scaling=1)) 
+enviro.species.scores<-as.data.frame(scores(enviro_lhi2, display='species'))
+enviro.species.scores$Predictors<-colnames(enviro_std)
+enviro.species.scores$P1<-c("EKM", "SSHA",  "YFT_ADU", "YFT_MIC",
+                            "SKJ_ADU", "SKJ_MIC", "BET_ADU", "BET_MIC",
+                            "BTY", "SST", "SSTA", "CHL", "SMT")
+enviro.species.scores
+
+g3<- ggplot()+
+  geom_segment(data=NULL, aes(y=-Inf, x=0, yend=Inf, xend=0), linetype='dotted')+
+  geom_segment(data=NULL, aes(y=0, x=-Inf, yend=0, xend=Inf), linetype='dotted')+
+  #geom_point(data=enviroPCA, aes(y=PC2, x=PC1, shape=treatshape, fill=treatfill),size=3)+scale_shape_identity()+scale_fill_identity()+
+  geom_segment(data=enviro.species.scores, aes(y=0, x=0, yend=PC2, xend=PC1), arrow=arrow(length=unit(0.3,'lines')), colour='black')+theme_classic() 
+g3<-g3+geom_text_repel(data=enviro.species.scores, aes(y=PC2, x=PC1, label=P1), segment.size=0, colour='black')
+
+eig<-eigenvals(enviro_lhi2)
+g3<- g3+scale_y_continuous(paste(names(eig[2]), sprintf('(%0.1f%% explained var.)', 100* eig[2]/sum(eig))))+
+  scale_x_continuous(paste(names(eig[1]), sprintf('(%0.1f%% explained var.)', 100* eig[1]/sum(eig))))
+
+g3<-g3+geom_text(aes(y=2.5, x=-1.3, label="C."), size=8)
+
+
+library(gridExtra)
+
+jpeg("paper_plots/hires_PCA_paper.jpg", width = 12, height = 4 , units ="in", res =300)
+#A4 size
+
+grid.arrange(g,g2,g3, ncol=3)
+
+dev.off()
 
 #### old
 

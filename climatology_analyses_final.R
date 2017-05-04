@@ -1,4 +1,4 @@
-# 19/11/16 LBishops Castle, UK
+# 19/11/16 Bishops Castle, UK
 # Model climatology data comparing foraging areas against background 
 # Final paper version including method to deal with SPAC
 
@@ -17,8 +17,8 @@ library(pscl)
 library(survey)
 library(caret)
 #install_github("clbustos/dominanceAnalysis")
-library(dominanceanalysis)
-source("~/grive/phd/scripts/paper2/hackedDominance.R")
+#library(dominanceanalysis)
+#source("~/grive/phd/scripts/paper2/hackedDominance.R")
 
 # extra functions for pairs multicollinearity exploration
 panel.cor <- function(x, y, digits=2, prefix="", cex.cor) 
@@ -108,7 +108,7 @@ qplot(smt, data=dat);qplot(sqrt(smt), data=dat)
 
 # Transform variables AFTER naomit!!
 dat$chl_log<-log2(dat$chl)
-dat$smt_100-dat$smt/100
+dat$smt_100<-dat$smt/100
 # changes BET from g/m2 to kg/km2 (bigger units in model)
 #dat$bet_adu_03_ave<-(dat$bet_adu_03_ave*1000000)/1000 
 
@@ -132,12 +132,14 @@ qplot(factor(variable), value, data=d1, geom="boxplot")+facet_wrap(~variable, sc
 #going for 1:3 presence-absence this geives models enough
 # absence locations to capture background but not too many
 # to supress the patterns in prediction plots (ie 10 zeros to every 1,
-# means very little observable effect)
+# means very little observable effect) - we're not making plots so not issue.
 
 heronP<-dat[dat$dset=="Heron" & dat$Count>0,]
 heronA<-dat[dat$dset=="Heron" & dat$Count==0,]
 heronPA<-heronA[sample(1:nrow(heronA), 3200),]
-dat_heron<-rbind(heronP, heronPA)
+dat_heron<-rbind(heronP, heronPA) 
+
+#write out final data write.csv(dat_heron, "spreads/final_clim_heron_dat.csv", quote=F, row.names=F)
 
 # Below code removed duplicate points where both presence and absence occur
 # together, however caused perfect seperation in binomial glm
@@ -191,6 +193,10 @@ pairs(dat_heron[,c(5,6,9,10,12,13,14,16,17, 19,20, 23, 24) ], upper.panel = pane
 #then z transform to standardize
 enviro_std<-decostand(dat_heron[,c(5,6,9,10,12,13,14,16,17, 19,20, 23, 24)], method="standardize")
 # takes all varibs but eke also juv and adu tnua forms
+
+enviro_std<-decostand(dat_heron[,c(5,8,12,13,14,16,17, 19,20, 24)], method="standardize")
+# takes sst, chl, bathy, smt and juv and adu tnua forms
+
 
 # then do pca (just a scaled RDA)
 enviro_rda<-rda(enviro_std, scale=T)
@@ -246,6 +252,7 @@ pairs(dat_heron[,c(5,9,12,13 ,23,24) ], upper.panel = panel.smooth,lower.panel=p
 pairs(dat_heron[,c(9,10,12,13 ,23,24) ], upper.panel = panel.smooth,lower.panel=panel.cor)
 # 
 
+
 vif(lm(1:nrow(dat_heron)~bet_adu_03_ave+
         bty+smt_100+wnd+sst+chl_log,
        data=dat_heron))
@@ -295,11 +302,13 @@ pairs(dat_heron[,c(12,13,14,16,17, 20 ,23,24) ], upper.panel = panel.smooth,lowe
 pairs(dat_heron[,c(9,12,13,16 ,24) ], upper.panel = panel.smooth,lower.panel=panel.cor)
 pairs(dat_heron[,c(5,9,12,13 ,24) ], upper.panel = panel.smooth,lower.panel=panel.cor)
 pairs(dat_heron[,c(9,12,13, 23,24) ], upper.panel = panel.smooth,lower.panel=panel.cor)
-
+pairs(dat_heron[,c(12,14,20 ,8,24) ], upper.panel = panel.smooth,lower.panel=panel.cor)
+# 
 #outlers again
 qplot(data=dat_heron, x=chl_log, bins=50)+facet_grid(PA~.)
 
-#dat_heron<-dat_heron[dat_heron$chl<1000,] # 
+# Removing high CHL values
+dat_heron<-dat_heron[dat_heron$chl<1000,] 
 
 m2a<-glm(PA~wnd+chl_log+smt_100+bty+tmc,
   data=dat_heron, family="binomial")
@@ -312,6 +321,16 @@ m2d<-glm(PA~wnd+shd+smt_100+bty+tmc,
          data=dat_heron, family="binomial")
 
 AIC(m2a, m2b, m2c, m2d)
+
+t1<-glm(PA~chl+smt_100+yft_juv_03_ave+
+          bty+bet_juv_03_ave,
+        data=dat_heron, family="binomial")
+t2<-glm(PA~chl+smt_100+
+          bty+bet_adu_03_ave,
+        data=dat_heron, family="binomial")
+
+anova(t1, t2);AIC(t1, t2)
+pR2(t1)[4];pR2(t2)[4]
 
 
 anova(m2a, m2b, m2c);AIC(m2a, m2b, m2c)
@@ -373,6 +392,14 @@ summary(m3)
 print(sum((resid(m3, type="pearson")^2))/df.residual(m3))
 print(roc.area(dat_heron$PA, fitted(m3))$A)
 pR2(m3)
+
+drop1(m3, test="Chi")
+anova(m3, update(m3, ~.-chl), test="LRT")
+anova(m3, update(m3, ~.-smt_100), test="LRT")
+anova(m3, update(m3, ~.-yft_juv_03_ave), test="LRT")
+anova(m3, update(m3, ~.-bty), test="LRT")
+anova(m3, update(m3, ~.-bet_juv_03_ave), test="LRT")
+anova(m3, update(m3, ~.-RAC), test="LRT")
 
 
 
@@ -443,6 +470,8 @@ lhiP<-dat[dat$dset=="LHI" & dat$Count>0,]
 lhiA<-dat[dat$dset=="LHI" & dat$Count==0,]
 lhiPA<-lhiA[sample(1:nrow(lhiA), 3200),]
 dat_lhi<-rbind(lhiP, lhiPA)
+
+#write out final data write.csv(dat_lhi, "spreads/final_clim_lhi_dat.csv", quote=F, row.names=F)
 
 
 # finding distance to nearest point after na.omit, this will identify isolated points
@@ -645,6 +674,12 @@ print(sum((resid(m3, type="pearson")^2))/df.residual(m3))
 print(roc.area(dat_lhi$PA, fitted(m3))$A)
 pR2(m3)
 
+drop1(m3, test="Chi")
+anova(m3, update(m3, ~.-smt_100), test="LRT")
+anova(m3, update(m3, ~.-yft_adu_03_ave), test="LRT")
+anova(m3, update(m3, ~.-bty), test="LRT")
+anova(m3, update(m3, ~.-bet_juv_03_ave), test="LRT")
+anova(m3, update(m3, ~.-RAC), test="LRT")
 
 corm2 <- spline.correlog(dat_lhi$Longitude, dat_lhi$Latitude, residuals(m2, type="pearson"), na.rm=T,
                   latlon=T,resamp=10)
@@ -684,6 +719,33 @@ qplot(data=out_spac, x=Dist, y=SPAC_Ave, colour=dset, geom="line")+
       geom_ribbon(aes(ymin=SPAC_025, ymax=SPAC_95, fill=dset),alpha=0.25)+theme_classic()
 #sweet
 #write.csv(out_spac, "paper_results/climatology_SPAC_results.csv", quote=F, row.names=F)
+
+# Paper mean and sd variables
+dat_heron<-read.csv("spreads/final_clim_heron_dat.csv", h=T)
+
+dat_lhi<-read.csv("spreads/final_clim_lhi_dat.csv", h=T)
+
+mean(dat_heron[dat_heron$PA==1,]$chl);sd(dat_heron[dat_heron$PA==1,]$chl)
+mean(dat_heron[dat_heron$PA==0,]$chl);sd(dat_heron[dat_heron$PA==0,]$chl)
+mean(dat_heron[dat_heron$PA==1,]$smt);sd(dat_heron[dat_heron$PA==1,]$smt)
+mean(dat_heron[dat_heron$PA==0,]$smt);sd(dat_heron[dat_heron$PA==0,]$smt)
+mean(dat_heron[dat_heron$PA==1,]$bty);sd(dat_heron[dat_heron$PA==1,]$bty)
+mean(dat_heron[dat_heron$PA==0,]$bty);sd(dat_heron[dat_heron$PA==0,]$bty)
+mean(dat_heron[dat_heron$PA==1,]$bet_juv_03_ave);sd(dat_heron[dat_heron$PA==1,]$bet_juv_03_ave)
+mean(dat_heron[dat_heron$PA==0,]$bet_juv_03_ave);sd(dat_heron[dat_heron$PA==0,]$bet_juv_03_ave)
+mean(dat_heron[dat_heron$PA==1,]$yft_juv_03_ave);sd(dat_heron[dat_heron$PA==1,]$yft_juv_03_ave)
+mean(dat_heron[dat_heron$PA==0,]$yft_juv_03_ave);sd(dat_heron[dat_heron$PA==0,]$yft_juv_03_ave)
+
+mean(dat_lhi[dat_lhi$PA==1,]$smt);sd(dat_lhi[dat_lhi$PA==1,]$smt)
+mean(dat_lhi[dat_lhi$PA==0,]$smt);sd(dat_lhi[dat_lhi$PA==0,]$smt)
+mean(dat_lhi[dat_lhi$PA==1,]$bty);sd(dat_lhi[dat_lhi$PA==1,]$bty)
+mean(dat_lhi[dat_lhi$PA==0,]$bty);sd(dat_lhi[dat_lhi$PA==0,]$bty)
+mean(dat_lhi[dat_lhi$PA==1,]$bet_juv_03_ave);sd(dat_lhi[dat_lhi$PA==1,]$bet_juv_03_ave)
+mean(dat_lhi[dat_lhi$PA==0,]$bet_juv_03_ave);sd(dat_lhi[dat_lhi$PA==0,]$bet_juv_03_ave)
+mean(dat_lhi[dat_lhi$PA==1,]$yft_adu_03_ave);sd(dat_lhi[dat_lhi$PA==1,]$yft_adu_03_ave)
+mean(dat_lhi[dat_lhi$PA==0,]$yft_adu_03_ave);sd(dat_lhi[dat_lhi$PA==0,]$yft_adu_03_ave)
+
+
 
 ##### Making plots #####
 
@@ -756,6 +818,31 @@ exp(v2)/(1+exp(v2))
 exp(coef(m3))
 plogis(coef(m3))
 
+#more interp!
+
+#probability to odds
+0.3/(1-0.3) #0.4285714 
+# odd to log odds
+log(0.3/(1-0.3))#-0.8472979
+#MY Dat: D smt model coef, log odds to odds
+exp(-0.6982)# 0.49748
+
+#So this means there is a
+# 1:0.49 chance of success for going 1 unit further
+# away from a smt.. so reversing:
+
+#odds to probability
+0.49748/(1+ 0.49748) #0.3322114
+#reverse probability
+1-0.3322114 #0.6677886
+#probability to odds
+0.6677886/(1-0.6677886)#2.010132
+# Which, hilariously is just
+exp(0.6982) # remove the - sign!
+
+
+
+
 # Loop to check model predictions are correct, this checks for collinearity
 # to see if some trends look wrong or if other variables are seeing their response
 # supressed due to collinearity with others. For presentation we could show model m2
@@ -784,6 +871,76 @@ for (i in c("chl_log", "sst","wnd","tmc","smt_100",
   readline("hi@")
 }
 
+
+### PCA figure creation
+
+enviro_std<-decostand(dat_heron[,c(5,8,12,13,14,16,17, 19,20, 24)], method="standardize")
+# takes sst, chl, bathy, smt and juv and adu tnua forms
+
+# then do pca (just a scaled RDA)
+enviro_rda<-rda(enviro_std, scale=T)
+summary(enviro_rda, display=NULL)
+screeplot(enviro_rda) # badly scaled
+#full summary
+summary(enviro_rda)
+
+enviro.sites.scores<-as.data.frame(scores(enviro_rda, choices=1:4, display='sites', scaling=1)) 
+# i've put scaling to 1 for the sites to fit better on the plot
+
+# Now make some plots
+enviro.species.scores<-as.data.frame(scores(enviro_rda, display='species'))
+enviro.species.scores$Predictors<-colnames(enviro_std)
+enviro.species.scores$P1<-c("SST", "PRO", "BTY", "BET_ADU", "BET_MIC", 
+                            "SKJ_ADU", "SKJ_MIC", "YFT_ADU", "YFT_MIC", "SMT")
+enviro.species.scores
+
+g<- ggplot()+
+  geom_segment(data=NULL, aes(y=-Inf, x=0, yend=Inf, xend=0), linetype='dotted')+
+  geom_segment(data=NULL, aes(y=0, x=-Inf, yend=0, xend=Inf), linetype='dotted')+
+  #geom_point(data=enviroPCA, aes(y=PC2, x=PC1, shape=treatshape, fill=treatfill),size=3)+scale_shape_identity()+scale_fill_identity()+
+  geom_segment(data=enviro.species.scores, aes(y=0, x=0, yend=PC2, xend=PC1), arrow=arrow(length=unit(0.3,'lines')), colour='black')+theme_classic() 
+g<-g+geom_text_repel(data=enviro.species.scores, aes(y=PC2, x=PC1, label=P1), segment.size=0, colour='black')
+
+eig<-eigenvals(enviro_rda)
+g<- g+scale_y_continuous(paste(names(eig[2]), sprintf('(%0.1f%% explained var.)', 100* eig[2]/sum(eig))))+
+  scale_x_continuous(paste(names(eig[1]), sprintf('(%0.1f%% explained var.)', 100* eig[1]/sum(eig))))
+
+g<-g+geom_text(aes(y=3.8, x=-4, label="A."), size=8)
+
+enviro_lhi<-decostand(dat_lhi[,c(5,8,12,13,14,16,17, 19,20, 24)], method="standardize")
+# takes sst, chl, bathy, smt and juv and adu tnua forms
+
+enviro_lhi<-rda(enviro_lhi, scale=T)
+summary(enviro_lhi, display=NULL)
+summary(enviro_lhi)
+
+enviro.sites.scores<-as.data.frame(scores(enviro_lhi, choices=1:4, display='sites', scaling=1)) 
+enviro.species.scores<-as.data.frame(scores(enviro_lhi, display='species'))
+enviro.species.scores$Predictors<-colnames(enviro_std)
+enviro.species.scores$P1<-c("SST", "PRO", "BTY", "BET_ADU", "BET_MIC", 
+                            "SKJ_ADU", "SKJ_MIC", "YFT_ADU", "YFT_MIC", "SMT")
+enviro.species.scores
+
+g2<- ggplot()+
+  geom_segment(data=NULL, aes(y=-Inf, x=0, yend=Inf, xend=0), linetype='dotted')+
+  geom_segment(data=NULL, aes(y=0, x=-Inf, yend=0, xend=Inf), linetype='dotted')+
+  #geom_point(data=enviroPCA, aes(y=PC2, x=PC1, shape=treatshape, fill=treatfill),size=3)+scale_shape_identity()+scale_fill_identity()+
+  geom_segment(data=enviro.species.scores, aes(y=0, x=0, yend=PC2, xend=PC1), arrow=arrow(length=unit(0.3,'lines')), colour='black')+theme_classic() 
+g2<-g2+geom_text_repel(data=enviro.species.scores, aes(y=PC2, x=PC1, label=P1), segment.size=0, colour='black')
+
+eig<-eigenvals(enviro_lhi)
+g2<- g2+scale_y_continuous(paste(names(eig[2]), sprintf('(%0.1f%% explained var.)', 100* eig[2]/sum(eig))))+
+  scale_x_continuous(paste(names(eig[1]), sprintf('(%0.1f%% explained var.)', 100* eig[1]/sum(eig))))
+
+g2<-g2+geom_text(aes(y=3.8, x=-4, label="B."), size=8)
+
+library(gridExtra)
+
+jpeg("paper_plots/climatology_PCA_paper.jpg", width = 8, height =4 , units ="in", res =300)
+
+grid.arrange( g, g2, ncol=2,nrow=1)
+
+dev.off()
 
 
 

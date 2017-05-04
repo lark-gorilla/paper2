@@ -261,6 +261,63 @@ write.csv(ext_v, "spreads/paper2_extractionV5.csv", quote=F, row.names=F)
 # a good idea to iterate modelling with additional random samples of more or less
 # to see when results stabalise... ie we have sampled the area comprehensivly
 
+# Make spatial lines of all tracking data for paper figure map
+
+dat<-read.csv("~/grive/phd/analyses/tracking_data_pot/GPS_141516_clean_resamp_tripsplit_hmm_attribs.csv", h=T)
+heron_dat<-read.csv("~/grive/phd/sourced_data/Heron/heron_paper_Scarla/fi_data_04_sep/All LT PTT 2012 & 2013 day foraging data for kernels & 2006 2011.csv", h=T)
+
+d1<-data.frame(Latitude=dat[dat$trip_type=="L",]$Latitude, Longitude=dat[dat$trip_type=="L",]$Longitude,
+               trip_id=as.character(dat[dat$trip_type=="L",]$trip_id), Year=dat[dat$trip_type=="L",]$Year,
+               Colony=dat[dat$trip_type=="L",]$Colony)
+
+d2<-data.frame(Latitude=heron_dat$Latitude, Longitude=heron_dat$Longitude,
+               trip_id=as.character(heron_dat$Nest_id), Year=heron_dat$Year,
+               Colony="Heron")
+
+d2<-d2[d2$Year=="2011" | d2$Year=="2013",]
+
+d3<-rbind(d1, d2)
+
+#get centroids of each dataset
+d3$ID<-paste(d3$Colony, d3$Year)
+aggregate(Latitude~ID, data=d3, FUN=mean)
+aggregate(Longitude~ID, data=d3, FUN=mean)
+
+ID  Latitude
+#1 Heron 2011 -21.1, 154.7
+#2 Heron 2013 -20.9, 153.4
+#3 Heron 2015 -21.0, 156.0
+#4   LHI 2014 -30.9, 156.5
+#5   LHI 2015 -27.7, 158.2
+#6   LHI 2016 -31.9, 157.3
+
+
+trip_IDs<-unique(d3$trip_id)
+
+year_id<-NULL
+colony_id<-NULL
+for(i in trip_IDs)
+{
+  Trip <- d3[d3$trip_id == i,]
+  L1 <- Line(as.matrix(data.frame(Trip$Longitude,Trip$Latitude)))
+  Ls1 <- Lines(L1, ID=which(trip_IDs == i))
+  SpLs1 <- SpatialLines(list(Ls1), CRS("+proj=longlat"))
+  if(which(trip_IDs == i) == 1) {SpLZ <- SpLs1} else
+    SpLZ <- spRbind(SpLZ, SpLs1)
+  year_id<-c(year_id, unique(Trip$Year))
+  colony_id<-c(colony_id, unique(Trip$Colony))
+}
+
+
+Tbl <- data.frame(Name_0 = 1, Name_1 = 1:length(trip_IDs), ID = trip_IDs, Year = year_id, Colony= colony_id)
+row.names(Tbl) <- Tbl$Name_1
+SLDF<-SpatialLinesDataFrame(SpLZ, Tbl)  
+
+setwd("~/grive/phd/analyses/paper2")
+
+writeOGR(SLDF, layer="paper_tracking_lines", dsn="spatial", driver="ESRI Shapefile", verbose=TRUE, overwrite=T)
+
+
 # areas of 99% UD: earch area
 
 k1<-readOGR(dsn="/home/mark/grive/phd/analyses/paper2/spatial/LTLHIGPS2014.shp",
