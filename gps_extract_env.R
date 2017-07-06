@@ -114,7 +114,9 @@ for(i in 1:89){
 r1<-raster("sst_ncdcOisst2Agg.nc", band=r2014[i])  
 r2<-raster("sst_ncdcOisst2Agg.nc", band=r2015[i])
 r3<-raster("sst_ncdcOisst2Agg.nc", band=r2016[i])
-  
+ 
+
+ 
 col.l <- colorRampPalette(c('black','blue','cyan','yellow', 'orange', 'red'))(20)
 p1<-levelplot(r1, contour=T, margin=F,scales=list(draw=FALSE) , at=13:33, col.regions=col.l, ylab= NULL, xlab= NULL, colorkey=T,main=paste(r1@z[[1]]))+layer(sp.polygons(lhi14[c(1,3),], col=c("dark gray","red")))
 p2<-levelplot(r2, contour=T, margin=F,scales=list(draw=FALSE) ,ylab= NULL,at=13:33,col.regions=col.l, xlab= NULL,colorkey=T, main=paste(r2@z[[1]]))+layer(sp.polygons(lhi15[c(1,3),], col=c("dark gray","red")))
@@ -174,8 +176,9 @@ setwd("~/grive/phd/analyses/paper2")
 dat<-read.csv("~/grive/phd/analyses/tracking_data_pot/GPS_141516_clean_resamp_tripsplit_hmm_attribs.csv", h=T)
 
 #prepdata
-
+# do not remove short trips for SIA paper :)
 dat<-dat[dat$trip_type=="L",]
+
 qplot(Longitude, Latitude, data=dat, colour=factor(Year))
 # good no 2014 heron in there.. dont think there are any LT anyway
 
@@ -366,8 +369,10 @@ dat$smt<-extract(smt,data.frame(dat$Longitude,dat$Latitude))
 bty<-raster("~/grive/phd/sourced_data/env_data/phd_bathy/GRIDONE_2D_100.0_-45.0_180.0_40.0.nc")
 dat$bty<-extract(bty,data.frame(dat$Longitude,dat$Latitude))
 
-write.csv(dat, "~/grive/phd/analyses/paper2/spreads/GPS_LT_141516_hmm_oceano_attribs.csv", quote=F, row.names=F)
- 
+#write.csv(dat, "~/grive/phd/analyses/paper2/spreads/GPS_LT_141516_hmm_oceano_attribs.csv", quote=F, row.names=F)
+#choose write out destination 
+#write.csv(dat, "~/grive/phd/analyses/SIA/spreads/GPS_LT_141516_hmm_oceano_attribs.csv", quote=F, row.names=F)
+
 ### tuna visualisation
 
 

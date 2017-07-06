@@ -207,7 +207,7 @@ write.csv(dat_tripsplit, "GPS_141516_clean_resamp_tripsplit.csv", quote=F, row.n
 ## HMM trial using moveHMM package
 library(moveHMM)
 
-dat<-read.csv("GPS_2014_15_clean_resamp_tripsplit.csv", h=T)
+dat<-read.csv("GPS_141516_clean_resamp_tripsplit.csv", h=T)
 
 tempdata<-prepData(data.frame(x=dat$Longitude, y=dat$Latitude,
                               ID=dat$TrackID), type="LL")
@@ -363,7 +363,7 @@ DateTime_AR<-as.POSIXlt(trip_distances$Actual_return, format = "%d/%m/%Y %H:%M")
 
 trip_distances$Actual_time<-difftime(DateTime_AR,stDateTime, units="hours")
 
-write.csv(trip_distances, "GPS_141516_trip_summary.csv", quote=F, row.names=F)
+write.csv(trip_distances, "GPS_141516_trip_summary_attrib.csv", quote=F, row.names=F)
 # re
 
 
