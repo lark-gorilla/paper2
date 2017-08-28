@@ -526,8 +526,8 @@ corm3 <- spline.correlog(LHI15$Longitude,
 
 
 # visualisation
-dat1<-HER15
-m1<-he15glmer3 # lhi14glmer3 # LHI15glmer2 #he15glmer3
+dat1<-LHI14
+m1<-lhi14glmer3 # lhi14glmer3 # LHI15glmer2 #he15glmer3
 # each time rbind
 
 out_pred<-NULL
@@ -580,8 +580,9 @@ plotekmU_he15<-ggplot(data=out_pred[out_pred$colony=="Heron15" & out_pred$env=="
   scale_linetype_manual(values=c(0,1))+theme(legend.position=0)+
   ylab("Probability of foraging")  + 
   xlab(expression("Ekman upwelling"~(m~day^{-1})))+
-  theme_classic()+theme(legend.position=0)  
-
+  theme_classic()+theme(legend.position=0)+
+  ggtitle("A)")+theme(plot.title = element_text(hjust=0.05, face="bold", margin=margin(t = 10, b = -15)))
+  
 plotsshHy_he15<-ggplot(data=out_pred[out_pred$colony=="Heron15" & out_pred$env=="sshHy",])+
   geom_density(aes(x=raw_varib, (..scaled..)/2, fill=factor(for_bin),
   linetype=factor(for_bin)), position="identity")+
@@ -593,7 +594,8 @@ plotsshHy_he15<-ggplot(data=out_pred[out_pred$colony=="Heron15" & out_pred$env==
   scale_linetype_manual(values=c(0,1))+theme(legend.position=0)+
   ylab("Probability of foraging")  + 
   xlab("Sea surface height anomaly (m)")+
-  theme_classic()+theme(legend.position=0)  
+  theme_classic()+theme(legend.position=0)+
+  ggtitle("D)")+theme(plot.title = element_text(hjust=0.05, face="bold", margin=margin(t = 10, b = -15))) 
 
 plotASST_he15<-ggplot(data=out_pred[out_pred$colony=="Heron15" & out_pred$env=="ASST",])+
   geom_density(aes(x=raw_varib, (..scaled..)/2, fill=factor(for_bin),
@@ -606,7 +608,8 @@ plotASST_he15<-ggplot(data=out_pred[out_pred$colony=="Heron15" & out_pred$env=="
   scale_linetype_manual(values=c(0,1))+theme(legend.position=0)+
   ylab("Probability of foraging")  + 
   xlab(expression( paste("Sea surface temp. anomaly (", degree~C, " )")))+
-  theme_classic()+theme(legend.position=0) 
+  theme_classic()+theme(legend.position=0)+
+  ggtitle("B)")+theme(plot.title = element_text(hjust=0.05, face="bold", margin=margin(t = 10, b = -15)))
 
 plotsmt_he15<-ggplot(data=out_pred[out_pred$colony=="Heron15" & out_pred$env=="smt_100",])+
   geom_density(aes(x=raw_varib*100, (..scaled..)/2, fill=factor(for_bin),
@@ -619,7 +622,8 @@ plotsmt_he15<-ggplot(data=out_pred[out_pred$colony=="Heron15" & out_pred$env=="s
   scale_linetype_manual(values=c(0,1))+theme(legend.position=0)+
   ylab("Probability of foraging")  + 
   xlab("Distance to seamount (km)")+
-  theme_classic()+theme(legend.position=0) 
+  theme_classic()+theme(legend.position=0)+
+  ggtitle("E)")+theme(plot.title = element_text(hjust=0.5, face="bold", margin=margin(t = 10, b = -15))) 
 
 plotbetJ_he15<-ggplot(data=out_pred[out_pred$colony=="Heron15" & out_pred$env=="betJ",])+
   geom_density(aes(x=raw_varib, (..scaled..)/2, fill=factor(for_bin),
@@ -632,7 +636,8 @@ plotbetJ_he15<-ggplot(data=out_pred[out_pred$colony=="Heron15" & out_pred$env=="
   scale_linetype_manual(values=c(0,1))+theme(legend.position=0)+
   ylab("Probability of foraging")  + 
   xlab(expression("Mic. Bigeye tuna biomass"~(g~m^{-2})))+
-  theme_classic()+theme(legend.position=0) 
+  theme_classic()+theme(legend.position=0)+
+  ggtitle("C)")+theme(plot.title = element_text(hjust=0.05, face="bold", margin=margin(t = 10, b = -15)))
 
 grid.arrange( plotekmU, plotsshHy, plotASST,plotsmt, plotbetJ, ncol=3,nrow=2)
 
@@ -657,7 +662,8 @@ plotekmU_lh14<-ggplot(data=out_pred[out_pred$colony=="LHI14" & out_pred$env=="ek
   scale_linetype_manual(values=c(0,1))+
   ylab("Probability of foraging")  + 
   xlab(expression("Ekman upwelling"~(m~day^{-1})))+
-  theme_classic()+theme(legend.position=0, axis.title.y=element_blank()) 
+  theme_classic()+theme(legend.position=0, axis.title.y=element_blank())+
+  ggtitle("I)")+theme(plot.title = element_text(hjust=0.5, face="bold", margin=margin(t = 10, b = -15))) 
 
 plotsshHy_lh14<-ggplot(data=out_pred[out_pred$colony=="LHI14" & out_pred$env=="sshHy",])+
   geom_density(aes(x=raw_varib, (..scaled..)/2, fill=factor(for_bin),
@@ -683,7 +689,8 @@ plotASST_lh14<-ggplot(data=out_pred[out_pred$colony=="LHI14" & out_pred$env=="AS
   scale_linetype_manual(values=c(0,1))+
   ylab("Probability of foraging")  + 
   xlab(expression( paste("Sea surface temp. anomaly (", degree~C, " )")))+
-  theme_classic()+theme(legend.position=0, axis.title.y=element_blank()) 
+  theme_classic()+theme(legend.position=0, axis.title.y=element_blank())+
+  ggtitle("J)")+theme(plot.title = element_text(hjust=0.5, face="bold", margin=margin(t = 10, b = -15))) 
 
 plotchl_lh14<-ggplot(data=out_pred[out_pred$colony=="LHI14" & out_pred$env=="CHL_A",])+
   geom_density(aes(x=raw_varib, (..scaled..)/2, fill=factor(for_bin),
@@ -696,8 +703,9 @@ plotchl_lh14<-ggplot(data=out_pred[out_pred$colony=="LHI14" & out_pred$env=="CHL
   scale_fill_manual(values = c("dark grey", "NA")) +
   scale_linetype_manual(values=c(0,1))+
   ylab("Probability of foraging")  + 
-  xlab(expression("Chlorophyll concentration"~(mg~m^{-3})))+
-  theme_classic()+theme(legend.position=0, axis.title.y=element_blank()) 
+  xlab(expression("Chlorophyll-a concentration"~(mg~m^{-3})))+
+  theme_classic()+theme(legend.position=0, axis.title.y=element_blank())+
+  ggtitle("L)")+theme(plot.title = element_text(hjust=0.05, face="bold", margin=margin(t = 10, b = -15))) 
 
 plotyftJ_lh14<-ggplot(data=out_pred[out_pred$colony=="LHI14" & out_pred$env=="yftJ",])+
   geom_density(aes(x=raw_varib, (..scaled..)/2, fill=factor(for_bin),
@@ -710,7 +718,8 @@ plotyftJ_lh14<-ggplot(data=out_pred[out_pred$colony=="LHI14" & out_pred$env=="yf
   scale_linetype_manual(values=c(0,1))+
   ylab("Probability of foraging")  + 
   xlab(expression("Mic. Yellowfin tuna biomass"~(g~m^{-2})))+
-  theme_classic()+theme(legend.position=0, axis.title.y=element_blank()) 
+  theme_classic()+theme(legend.position=0, axis.title.y=element_blank()) +
+  ggtitle("K)")+theme(plot.title = element_text(hjust=0.05, face="bold", margin=margin(t = 10, b = -15)))
 
 grid.arrange( plotekmU, plotsshHy, plotASST,plotchl, plotyftJ, ncol=3,nrow=2)
 
@@ -734,7 +743,8 @@ plotekmU_lh15<-ggplot(data=out_pred[out_pred$colony=="LHI15" & out_pred$env=="ek
   scale_linetype_manual(values=c(0,1))+
   ylab("Probability of foraging")  + 
   xlab(expression("Ekman upwelling"~(m~day^{-1})))+
-  theme_classic()+theme(legend.position=0, axis.title.y=element_blank()) 
+  theme_classic()+theme(legend.position=0, axis.title.y=element_blank())+
+  ggtitle("F)")+theme(plot.title = element_text(hjust=0.5, face="bold", margin=margin(t = 10, b = -15))) 
 
 
 plotASST_lh15<-ggplot(data=out_pred[out_pred$colony=="LHI15" & out_pred$env=="ASST",])+
@@ -748,7 +758,8 @@ plotASST_lh15<-ggplot(data=out_pred[out_pred$colony=="LHI15" & out_pred$env=="AS
   scale_linetype_manual(values=c(0,1))+
   ylab("Probability of foraging")  + 
   xlab(expression( paste("Sea surface temp. anomaly (", degree~C, " )")))+
-  theme_classic()+theme(legend.position=0, axis.title.y=element_blank())
+  theme_classic()+theme(legend.position=0, axis.title.y=element_blank())+
+  ggtitle("G)")+theme(plot.title = element_text(hjust=0.5, face="bold", margin=margin(t = 10, b = -15)))
 
 
 plotskjA_lh15<-ggplot(data=out_pred[out_pred$colony=="LHI15" & out_pred$env=="skjA",])+
@@ -762,7 +773,8 @@ plotskjA_lh15<-ggplot(data=out_pred[out_pred$colony=="LHI15" & out_pred$env=="sk
   scale_linetype_manual(values=c(0,1))+
   ylab("Probability of foraging")  + 
   xlab(expression("Adult Skipjack tuna biomass"~(g~m^{-2})))+
-  theme_classic()+theme(legend.position=0, axis.title.y=element_blank())
+  theme_classic()+theme(legend.position=0, axis.title.y=element_blank())+
+  ggtitle("H)")+theme(plot.title = element_text(hjust=0.05, face="bold", margin=margin(t = 10, b = -15)))
 
 grid.arrange( plotekmU,  plotASST, plotskjA,  ncol=3,nrow=2)
 
@@ -775,7 +787,7 @@ dev.off()
 
 ## BIG PLOT WITH ALL
 
-jpeg("paper_plots/hires_all_paper.jpg", width = 8.27, height =11.69 , units ="in", res =300)
+jpeg("paper_plots/hires_all_paper_revised.jpg", width = 8.27, height =11.69 , units ="in", res =300)
 #A4 size
 
 grid.arrange( arrangeGrob(plotekmU_he15, plotASST_he15,plotbetJ_he15,
@@ -784,7 +796,7 @@ grid.arrange( arrangeGrob(plotekmU_he15, plotASST_he15,plotbetJ_he15,
               grid.rect(gp=gpar(col="white")),grid.rect(gp=gpar(col="white")),
               ncol=1, top=textGrob("Lord Howe Island 2015", gp=gpar(fontsize=16),x=0.55, y=0.5, just="center")),
               arrangeGrob(plotekmU_lh14,  plotASST_lh14,plotyftJ_lh14,
-              plotsshHy_lh14, plotchl_lh14, ncol=1, top=textGrob("Lord Howe Island 2014", gp=gpar(fontsize=16),x=0.55, y=0.5, just="center")),
+              plotchl_lh14, grid.rect(gp=gpar(col="white")), ncol=1, top=textGrob("Lord Howe Island 2014", gp=gpar(fontsize=16),x=0.55, y=0.5, just="center")),
               ncol=3)
 
 dev.off()

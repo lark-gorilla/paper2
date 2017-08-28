@@ -128,6 +128,13 @@ source("~/grive/phd/scripts/github_MIBA/batchUD.R")
 #heron_old[heron_old$Year==2011,]
 #dat_old[with(dat_old, trip_type=="L" & Colony=='Heron' & Year=="2015"),]
 heron_old<-heron_old@data
+# while we have this data we'll work out how long each LT is active for, for trip summary table 2
+aggregate(Date~Nest_id, heron_old[heron_old$Year==2011,], FUN =function(x){length(unique(x))})
+mean(c(11,11,7)); sd(c(11,11,7))
+
+aggregate(Date~Nest_id, heron_old[heron_old$Year==2013,], FUN =function(x){length(unique(x))})
+mean(c(7,9,9,7,15,11,7,4,6)); sd(c(7,9,9,7,15,11,7,4,6))
+
 dat_old<-dat_old@data
 
 for(j in c(99,75,50,25))
@@ -337,6 +344,26 @@ h2<-readOGR(dsn="/home/mark/grive/phd/analyses/paper2/spatial/LTHeronPTT2013.shp
 
 h3<-readOGR(dsn="/home/mark/grive/phd/analyses/paper2/spatial/LTHeronGPS2015.shp",
             layer="LTHeronGPS2015")
+
+
+# get centroids of 50% UDs
+
+rbind(data.frame(ID="LHI14", gCentroid(k1[3,])),
+      data.frame(ID="LHI15", gCentroid(k2[3,])),
+      data.frame(ID="LHI16", gCentroid(k3[3,])),
+      data.frame(ID="HER11", gCentroid(h1[3,])),
+      data.frame(ID="HER13", gCentroid(h2[3,])),
+      data.frame(ID="HER15", gCentroid(h3[3,])))
+
+#ID        x         y
+#1  LHI14 156.1532 -31.83339
+#11 LHI15 158.0625 -27.72413
+#12 LHI16 157.1900 -31.83591
+#13 HER11 155.7414 -19.20367
+#14 HER13 154.2389 -19.78477
+#15 HER15 156.9149 -20.40979
+
+
 
 library(raster)
 # function area can calc to m2 from lat long
